@@ -2,8 +2,8 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Phase 1, implemented methods only |
-| Scope | Classical harmonic oscillator; Bell-state circuit |
+| Status | Phases 0–3, implemented methods only |
+| Scope | Classical harmonic oscillator; Bell-state circuit; heat diffusion |
 | Related | [System architecture](../architecture/SYSTEM_ARCHITECTURE.md), [Scientific validation](../validation/SCIENTIFIC_VALIDATION.md) |
 
 > This document describes **what the code actually computes**. It does not
@@ -24,6 +24,9 @@ The classical model uses SI units consistently.
 | Velocity | `v` | metre per second (m/s) |
 | Time | `t` | second (s) |
 | Energy | `E` | joule (J) |
+| Diffusivity | `\alpha` | metre squared per second (m²/s) |
+| Length | `L` | metre (m) |
+| Position | `x` | metre (m) |
 
 The quantum model is unitless. Amplitudes are dimensionless complex numbers,
 and probabilities are dimensionless real numbers in `[0, 1]`.
@@ -424,22 +427,117 @@ analytically written vector.
   transpilation.
 - Two qubits only.
 
-## 4. Cross-cutting numerical practices
+## 4. Classical heat diffusion
 
-### 4.1 Validation before computation
+### 4.1 Model
+
+The model solves the one-dimensional heat equation
+
+$$
+\frac{\partial u}{\partial t} = \alpha \frac{\partial^2 u}{\partial x^2},
+\qquad 0 < x < L, \quad t > 0,
+$$
+
+with homogeneous Dirichlet boundaries
+
+$$
+u(0,t) = 0, \qquad u(L,t) = 0,
+$$
+
+and initial profile
+
+$$
+u(x,0) = \sin\!\left(\frac{\pi x}{L}\right)
+       + 0.5\,\sin\!\left(\frac{3\pi x}{L}\right).
+$$
+
+All quantities use SI units: diffusivity `\alpha` in m²/s, length `L` in m,
+position `x` in m, and time `t` in s. The domain of validity is
+`\alpha > 0`, `L > 0`, `t >= 0`, and at least three grid points.
+
+### 4.2 Exact reference solution
+
+Separation of variables gives the exact Fourier sine-series solution
+
+$$
+u(x,t) =
+e^{-\alpha (\pi/L)^2 t} \sin\!\left(\frac{\pi x}{L}\right)
++ 0.5\,e^{-9\alpha (\pi/L)^2 t} \sin\!\left(\frac{3\pi x}{L}\right).
+$$
+
+Only the first (`n = 1`) and third (`n = 3`) sine modes are present. The
+first-mode decay rate is `\alpha (\pi/L)^2`; the third-mode decay rate is
+`9\alpha (\pi/L)^2`.
+
+### 4.3 Spatial discretisation error bound
+
+Second-order central differences on a uniform grid with `dx = L / (N - 1)`
+give the discrete eigenvalue for sine mode `n` (`k = n\pi/L`):
+
+$$
+\lambda_n^{\text{disc}} = -\frac{2\alpha}{dx^2}\left(1 - \cos(k\,dx)\right)
+= -\alpha k^2\left(1 - \frac{(k\,dx)^2}{12} + O((k\,dx)^4)\right).
+$$
+
+The relative rate error is `\varepsilon_k = (k\,dx)^2 / 12`, so the peak
+absolute error scales as `dx^2`. Acceptance thresholds scale with `dx^2`
+times a documented safety factor.
+
+### 4.4 Numerical method
+
+- Spatial discretisation: second-order central differences on a uniform grid.
+- Interior unknowns: `u_1 .. u_{N-2}`; boundaries `u_0 = u_{N-1} = 0` enforced
+  exactly at all times.
+- Semi-discrete system: `du/dt = A*u` where
+  `A = (alpha/dx^2) * tridiag(1, -2, 1)`.
+- Time integration: `solve_ivp(..., method="Radau", rtol=1e-10, atol=1e-12)`.
+- Jacobian: constant sparse tridiagonal CSC matrix supplied to Radau.
+- Output: solution at `num_output_points` uniformly spaced times in
+  `[0, t_end]`, with boundary columns exactly zero.
+- Result: frozen slotted `HeatDiffusionResult`; strict validation via
+  `qrs.core.validation`; fails loudly on bad shape or non-finite output.
+
+### 4.5 Algorithm
+
+```text
+1. Validate alpha, length, t_end, num_points, num_output_points, rtol, atol.
+2. Build the uniform grid x_i = i*dx, dx = L / (N - 1).
+3. Set the initial profile u(x,0) = sin(pi x/L) + 0.5*sin(3*pi x/L).
+4. Assemble the sparse tridiagonal CSC Jacobian.
+5. Integrate with solve_ivp Radau over [0, t_end].
+6. Reject on failure, non-finite values, or unexpected state shape.
+7. Insert exact-zero boundary columns.
+8. Sample the exact Fourier solution at the same (t, x) points.
+9. Compute max absolute error, boundary max, initial profile error,
+   min/max, and first-mode decay rate.
+10. Return an immutable HeatDiffusionResult.
+```
+
+### 4.6 Assumptions and limitations
+
+- Linear, parabolic problem; no heat sources, no time-varying diffusivity.
+- Stiff for fine grids; Radau is required (a dense Jacobian at N=401 takes
+  about 20 s vs 0.43 s with the sparse Jacobian).
+- No claim of real-world predictive accuracy beyond the validated range.
+- Floating-point results may differ in the last few bits across platforms;
+  tests use justified tolerances, not bitwise equality.
+
+## 5. Cross-cutting numerical practices
+
+### 5.1 Validation before computation
 
 Physical inputs are validated before the solver or device is invoked. Booleans
 are rejected explicitly because Python treats `bool` as a subclass of `int`.
 NaN and infinity are rejected. Invalid inputs raise `TypeError` or `ValueError`
 with the parameter name in the message.
 
-### 4.2 Failure handling
+### 5.2 Failure handling
 
 Backend failures and contract violations raise `RuntimeError`. The code does
 not return partially valid results, silently clip values, or fall back to a
 different method.
 
-### 4.3 Reproducibility
+### 5.3 Reproducibility
 
 - Exact pins: NumPy 2.5.4, SciPy 1.18.1, PennyLane 0.45.1, pytest 9.2.0,
   Ruff 0.17.4.
@@ -453,19 +551,18 @@ systems, CPUs, and linear-algebra libraries. Tests therefore use justified
 tolerances rather than bitwise equality, except where deterministic output is
 asserted within a single run.
 
-### 4.4 Separation from AI
+### 5.4 Separation from AI
 
 Neither numerical module imports an AI client, a language model, or a network
 library. Any future explanation layer must consume validated result objects and
 must not contribute to numerical outcomes.
 
-## 5. Planned methods (not implemented)
+## 6. Planned methods (not implemented)
 
 The following are **planned**, not present in the codebase:
 
 - damped and driven oscillators, nonlinear springs, and time-dependent
   parameters;
-- uncertainty propagation and parameter estimation;
 - hybrid classical–quantum workflows;
 - noisy quantum simulation, shot-based sampling, and error mitigation;
 - parameterized quantum circuits and variational algorithms;

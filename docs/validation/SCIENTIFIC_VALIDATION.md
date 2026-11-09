@@ -2,8 +2,8 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Phase 1 validation record; measured on 2026-11-08 |
-| Scope | Classical harmonic oscillator; PennyLane Bell state |
+| Status | Phase 1 validation record; Phase 3 heat diffusion added |
+| Scope | Classical harmonic oscillator; PennyLane Bell state; heat diffusion |
 | Environment | Windows, CPU only, Python 3.12.10, repo-local `.venv` |
 | Related | [Project brief](../requirements/PROJECT_BRIEF.md), [System architecture](../architecture/SYSTEM_ARCHITECTURE.md), [Numerical methods](../scientific-methods/NUMERICAL_METHODS.md), [Decisions](../decisions/ARCHITECTURAL_DECISIONS.md) |
 
@@ -598,7 +598,76 @@ parameters listed in Sections 5.4 and 5.5. `simulate_harmonic_oscillator` accept
 `method`, `rtol`, and `atol` keyword arguments; the measured values can be read
 directly from the returned result fields.
 
-## 11. Traceability summary
+## 11. Heat diffusion validation
+
+The heat diffusion domain was added in Phase 3 and validated against the exact
+Fourier sine-series solution. All measurements were made on Windows, CPU only,
+Python 3.12.10, repo-local `.venv`, NumPy 2.5.4, SciPy 1.18.1.
+
+### 11.1 Model and validity
+
+The model solves `u_t = alpha * u_xx` on `0 < x < L` with zero Dirichlet
+boundaries and initial profile `sin(pi x/L) + 0.5*sin(3*pi x/L)`. All
+quantities use SI units. Domain of validity: `alpha > 0`, `L > 0`, `t >= 0`,
+`num_points >= 3`.
+
+### 11.2 Solver
+
+Method of lines with second-order central differences; `solve_ivp` Radau with
+`rtol=1e-10`, `atol=1e-12`; constant sparse tridiagonal CSC Jacobian.
+
+### 11.3 Measured acceptance gates (candidate defaults)
+
+| Gate | Condition | Measured value |
+| --- | --- | --- |
+| HD-G1 | Max abs error over `[0, t_end]` <= `1e-5` | `8.768433e-06` at `t = 114.0` |
+| HD-G2 | Error at `t_end` <= `2e-6` | `1.613656e-06` |
+| HD-G3 | `u(L/2, 600)` diff <= `2e-6` | `1.086219e-06` |
+| HD-G4 | Boundary max abs == `0.0` | `0.0` |
+| HD-G5 | Initial profile error <= `1e-12` | `3.062e-16` |
+| HD-G6 | `min >= -1e-12` | `0.0` |
+| HD-G7 | Interpolation error <= `2e-6` | `1.505806e-06` |
+
+### 11.4 Spatial convergence
+
+Observed order computed as `log(e_coarse / e_fine) / log(dx_coarse / dx_fine)`
+with `dx = L / (N - 1)`, max error over time at `num_output_points = 101`:
+
+| N | dx (m) | Max abs error | Observed order |
+| --- | --- | --- | --- |
+| 51 | `2.000000e-03` | `5.596093e-04` | — |
+| 101 | `1.000000e-03` | `1.402979e-04` | `1.99543` |
+| 201 | `5.000000e-04` | `3.507249e-05` | `2.00004` |
+| 401 | `2.500000e-04` | `8.768433e-06` | `1.99997` |
+
+All observed orders are in `[1.9, 2.1]`, confirming second-order spatial
+convergence.
+
+### 11.5 First-mode decay
+
+Projection onto the first sine mode at `N = 401`:
+- measured rate `9.869553667292098e-4 s^-1` vs exact `9.869604401089355e-4 s^-1`
+  (relative `-5.140408e-06`, within the `1e-4` gate).
+
+### 11.6 Uncertainty propagation
+
+Diffusivity `alpha ~ Normal(1e-6, (5e-8)^2)`, propagated through the numerical
+solver via dense-output interpolation at `t_j = alpha_j * t_q / alpha0`
+(`x_q = L/2 = 0.05 m`, `t_q = 600 s`), seed 0, 10000 samples:
+
+| Statistic | Value |
+| --- | --- |
+| Solver-based mean | `0.5507552509129310` |
+| Exact mean | `0.5508541291876023` |
+| Solver-based std (`ddof=1`) | `0.01569055194620832` |
+| Exact std | `0.01571695033833832` |
+| Standard error of mean | `1.569055e-04` |
+| 95% interval | `[0.5205535308353868, 0.5820822860582533]` |
+
+The solver-based mean is within 4 standard errors of the exact mean, and the
+solver-based std is within 5% of the exact std.
+
+## 12. Traceability summary
 
 | Requirement | Evidence |
 | --- | --- |
@@ -611,12 +680,14 @@ directly from the returned result fields.
 | FR-X5 | This document and the labelled documents it links to |
 | FR-X6 | Numerical modules import no AI or network client; the architecture forbids it |
 
-## 12. Status declaration
+## 13. Status declaration
 
-Phase 1 is **implemented and validated as an ideal two-model foundation**.
+Phase 1 is **implemented and validated as an ideal two-model foundation**, and
+the Phase 3 heat-diffusion domain is **implemented and validated** against the
+exact Fourier sine-series solution with explicit uncertainty propagation.
 
-Everything beyond the two models, the shared validation helpers, the tests, the
-examples, and the documentation is **planned**. In particular, the eleven
-simulation domains, real-world data ingestion, storage, visualisation, digital
-twin behaviour, optimisation, and AI orchestration do not exist in this
-repository yet.
+Everything beyond the two models plus heat diffusion, the shared validation
+helpers, the tests, the examples, and the documentation is **planned**. In
+particular, the remaining simulation domains, real-world data ingestion,
+storage, visualisation, digital twin behaviour, optimisation, and AI
+orchestration do not exist in this repository yet.
