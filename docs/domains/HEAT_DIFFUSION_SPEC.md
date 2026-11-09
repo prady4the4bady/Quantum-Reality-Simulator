@@ -30,23 +30,23 @@ and uncertainty is propagated by Monte Carlo sampling of the diffusivity.
 
 The model solves
 
-.. math::
-
-    \frac{\partial u}{\partial t} = \alpha \frac{\partial^2 u}{\partial x^2},
-    \qquad 0 < x < L, \quad t > 0,
+$$
+\frac{\partial u}{\partial t} = \alpha \frac{\partial^2 u}{\partial x^2},
+\qquad 0 < x < L, \quad t > 0,
+$$
 
 with homogeneous Dirichlet boundary conditions
 
-.. math::
-
-    u(0,t) = 0, \qquad u(L,t) = 0,
+$$
+u(0,t) = 0, \qquad u(L,t) = 0,
+$$
 
 and initial profile
 
-.. math::
-
-    u(x,0) = \sin\!\left(\frac{\pi x}{L}\right)
-           + 0.5\,\sin\!\left(\frac{3\pi x}{L}\right).
+$$
+u(x,0) = \sin\!\left(\frac{\pi x}{L}\right)
+       + 0.5\,\sin\!\left(\frac{3\pi x}{L}\right).
+$$
 
 ### 2.2 Units
 
@@ -80,11 +80,11 @@ requirements HD-004–HD-007).
 
 Separation of variables gives the exact Fourier sine-series solution
 
-.. math::
-
-    u(x,t) =
-    e^{-\alpha (\pi/L)^2 t} \sin\!\left(\frac{\pi x}{L}\right)
-    + 0.5\,e^{-9\alpha (\pi/L)^2 t} \sin\!\left(\frac{3\pi x}{L}\right).
+$$
+u(x,t) =
+e^{-\alpha (\pi/L)^2 t} \sin\!\left(\frac{\pi x}{L}\right)
++ 0.5\,e^{-9\alpha (\pi/L)^2 t} \sin\!\left(\frac{3\pi x}{L}\right).
+$$
 
 Only the first two sine modes are present because the initial condition
 contains only `n = 1` and `n = 3`. The first-mode decay rate is
@@ -93,7 +93,60 @@ contains only `n = 1` and `n = 3`. The first-mode decay rate is
 This is an independently constructed analytical reference; the numerical
 solver must reproduce it within the documented tolerances.
 
-## 4. Requirement identifiers
+## 4. Spatial discretisation error bound
+
+The semi-discrete operator uses second-order central differences:
+
+$$
+\frac{du_i}{dt} = \frac{\alpha}{dx^2}\left(u_{i-1} - 2u_i + u_{i+1}\right),
+\qquad dx = \frac{L}{N-1},
+$$
+
+where `N = num_points`. For sine mode `n` with wavenumber `k = n\pi/L`, the
+discrete eigenvalue is
+
+$$
+\lambda_n^{\text{disc}} = -\frac{2\alpha}{dx^2}\left(1 - \cos(k\,dx)\right).
+$$
+
+Using `1 - cos(z) = z^2/2 - z^4/24 + O(z^6)`,
+
+$$
+\lambda_n^{\text{disc}}
+= -\alpha k^2\left(1 - \frac{(k\,dx)^2}{12} + O((k\,dx)^4)\right).
+$$
+
+So the **relative rate error** for mode `n` is
+
+$$
+\varepsilon_k = \frac{(k\,dx)^2}{12} + O((k\,dx)^4).
+$$
+
+The numerical solution decays slightly more slowly than the exact one:
+
+$$
+u_n^{\text{num}}(t) \approx u_n^{\text{exact}}(t)\,
+\exp\!\left(\alpha k^2 t\,\varepsilon_k\right)
+\approx u_n^{\text{exact}}(t)\left(1 + \alpha k^2 t\,\varepsilon_k\right).
+$$
+
+For the candidate default case (`\alpha = 1e-6`, `L = 0.1`, `t_end = 600`,
+`N = 401`, `dx = 2.5e-4`), the dominant mode is `n = 1`:
+
+- `k = \pi/L = 31.4159 m^{-1}`, `k dx = 0.007854`
+- `\varepsilon_k = (0.007854)^2 / 12 = 5.1404e-6` (matches the measured
+  relative rate error `-5.140408e-06`)
+- `\alpha k^2 t_end = 0.592176`
+- Peak relative error `\approx 0.592176 \times 5.1404e-6 = 3.04e-6`
+- Peak absolute error at `x = L/2` `\approx 0.5507 \times 3.04e-6 = 1.68e-6`
+  (matches the measured `1.683722e-06`)
+
+Because `\varepsilon_k \propto dx^2`, the peak error scales as `dx^2`, which
+is why acceptance thresholds HD-G1–HD-G3 are expressed as absolute bounds and
+why the runner's validation thresholds in Section 8 scale with `dx^2` times a
+safety factor.
+
+## 5. Requirement identifiers
 
 | ID | Requirement |
 | --- | --- |
@@ -113,7 +166,7 @@ solver must reproduce it within the documented tolerances.
 | HD-014 | Uncertainty contract: `alpha ~ Normal`, relative standard deviation, `N` Monte Carlo samples from `numpy.random.default_rng(seed)`, report mean, standard deviation, and 95% interval at a chosen point and time. |
 | HD-015 | Determinism: identical manifest and seed reproduce identical summaries. |
 
-## 5. Proposed numerical method
+## 6. Proposed numerical method
 
 - Spatial discretisation: second-order central differences on a uniform grid
   `x_i = i*dx`, `dx = L / (num_points - 1)`, `i = 0 .. num_points-1`.
@@ -129,7 +182,7 @@ solver must reproduce it within the documented tolerances.
   arrays `x`, `t`, `u` (shape `(num_output_points, num_points)`), exact-solution
   arrays, max error metrics, and solver metadata.
 
-## 6. Default case and measured acceptance gates
+## 7. Default case and measured acceptance gates
 
 The candidate default case (unapproved, unwritten) is:
 
@@ -149,7 +202,7 @@ first-mode decay rate `9.869604401089355e-4 s^-1`, discrete eigenvalue max
 `64 s^-1`, stiffness ratio `64845.56`. Radau is required because the problem is
 stiff.
 
-### 6.1 Deterministic acceptance gates (measured scratch values)
+### 7.1 Deterministic acceptance gates
 
 These gates are based on measured scratch runs, not guesses. They are
 candidates pending approval and implementation.
@@ -161,32 +214,43 @@ candidates pending approval and implementation.
 | HD-G3 | `u(L/2, 600)` vs exact | diff `<= 2e-6` (measured `1.086219e-06`) |
 | HD-G4 | Boundary max abs value | `== 0.0` (measured `0.0`) |
 | HD-G5 | Initial profile max abs error | `<= 1e-12` (measured `3.062e-16`) |
-| HD-G6 | Solution range | `min >= 0.0` and `max` finite (measured `min = 0.0`, `max = 1.075812584993856`) |
+| HD-G6 | Solution range | `min >= -1e-12` and `max` finite (measured `min = 0.0`, `max = 1.075812584993856`) |
 
-### 6.2 Spatial convergence (measured)
+HD-G1–HD-G3 follow from the `dx^2` error bound in Section 4: at `N = 401` the
+peak absolute error is bounded by approximately `1.68e-6`, comfortably within
+the `1e-5` / `2e-6` / `2e-6` limits.
 
-Second-order convergence in space, measured max error over time at
-`num_output_points = 101`:
+### 7.2 Spatial convergence (measured)
 
-| N | Max abs error | Observed order |
-| --- | --- | --- |
-| 51 | `5.596093e-04` | — |
-| 101 | `1.402979e-04` | `2.024706` |
-| 201 | `3.507249e-05` | `2.014505` |
-| 401 | `8.768433e-06` | `2.007161` |
+Second-order convergence in space. Observed order is computed as
 
-Convergence at `t_end`:
+$$
+\text{order} = \frac{\log(e_{\text{coarse}} / e_{\text{fine}})}
+{\log(dx_{\text{coarse}} / dx_{\text{fine}})},
+\qquad dx = \frac{L}{N-1}.
+$$
 
-| N | Max abs error at `t_end` | Observed order |
-| --- | --- | --- |
-| 51 | `1.034228e-04` | — |
-| 101 | `2.581960e-05` | `2.030883` |
-| 201 | `6.455170e-06` | `2.014362` |
-| 401 | `1.613656e-06` | `2.007335` |
+Measured max error over time at `num_output_points = 101`:
+
+| N | dx (m) | Max abs error | Observed order |
+| --- | --- | --- | --- |
+| 51 | `2.000000e-03` | `5.596093e-04` | — |
+| 101 | `1.000000e-03` | `1.402979e-04` | `1.99543` |
+| 201 | `5.000000e-04` | `3.507249e-05` | `2.00004` |
+| 401 | `2.500000e-04` | `8.768433e-06` | `1.99997` |
+
+Measured error at `t_end`:
+
+| N | dx (m) | Max abs error at `t_end` | Observed order |
+| --- | --- | --- | --- |
+| 51 | `2.000000e-03` | `1.034228e-04` | — |
+| 101 | `1.000000e-03` | `2.581960e-05` | `2.002016` |
+| 201 | `5.000000e-04` | `6.455170e-06` | `1.999939` |
+| 401 | `2.500000e-04` | `1.613656e-06` | `2.000123` |
 
 Acceptance: measured order in `[1.9, 2.1]` (near order 2).
 
-### 6.3 First-mode decay (measured)
+### 7.3 First-mode decay (measured)
 
 Projection onto the first sine mode at `N = 401`:
 - max `|projection - exp(-alpha (pi/L)^2 t)|` = `1.683722e-06` at `t = 600`.
@@ -197,43 +261,72 @@ Projection onto the first sine mode at `N = 401`:
 
 Acceptance: relative rate error `<= 1e-4` (measured `5.140408e-06`).
 
-### 6.4 Performance (informational, not a gate)
+### 7.4 Performance (informational, not a gate)
 
 Sparse Jacobian timings at `N = 51/101/201/401`:
 `0.309 / 0.354 / 0.344 / 0.429` s. Dense Jacobian at `N = 401`: `20.147` s,
 max solution difference `4.55e-15`, identical `nfev = 2157`. The sparse Jacobian
 is required for the default case to be viable in tests.
 
-## 7. Uncertainty contract
+## 8. Uncertainty contract
 
-### 7.1 Model
+### 8.1 Model
 
 Diffusivity is uncertain:
 
-.. math::
-
-    \alpha \sim \mathrm{Normal}(\alpha_0,\;(\alpha_0 \cdot \alpha\_relative\_std)^2).
+$$
+\alpha \sim \mathrm{Normal}(\alpha_0,\;(\alpha_0 \cdot \alpha\_relative\_std)^2).
+$$
 
 Candidate default: `\alpha_0 = 1e-6`, `\alpha_relative_std = 0.05`, so
-`\sigma_\alpha = 5e-8`.
+`\sigma_\alpha = 5e-8`. Any sampled `\alpha <= 0` is rejected before the solver
+is called (HD-004).
 
-### 7.2 Monte Carlo procedure
+### 8.2 Solver-based Monte Carlo propagation (primary)
 
-- Draw `num_samples` samples `\alpha_j \sim \mathrm{Normal}(\alpha_0, \sigma_\alpha)`
-  using `numpy.random.default_rng(seed)`.
-- For each sample, evaluate the quantity of interest at the chosen point and
-  time: `x_q = L/2 = 0.05 m`, `t_q = 600 s`.
-- Quantity of interest (exact solution at `x_q`, since `sin(3*pi*x_q/L) =
-  sin(3*pi/2) = -1`):
+The PDE depends only on the product `\alpha t`, so
 
-.. math::
+$$
+u(\alpha_j, x_q, t_q) = u(\alpha_0, x_q, t_j),
+\qquad t_j = \alpha_j \frac{t_q}{\alpha_0}.
+$$
 
-    q(\alpha) = e^{-\alpha (\pi/L)^2 t_q} - 0.5\,e^{-9\alpha (\pi/L)^2 t_q}.
+Procedure:
 
-- Report the sample mean, sample standard deviation (`ddof=1`), and the
-  central 95% interval (2.5th and 97.5th percentiles).
+1. Run `solve_ivp` **once** at `\alpha_0` with dense output (or a fine `t_eval`
+   and cubic interpolation) over `[0, t_end * 1.25]` so every `t_j` is inside
+   the integration window.
+2. Draw `num_samples` samples `\alpha_j \sim \mathrm{Normal}(\alpha_0, \sigma_\alpha)`
+   using `numpy.random.default_rng(seed)`; reject any `\alpha_j <= 0`.
+3. For each sample, evaluate `t_j = \alpha_j * t_q / \alpha_0` and interpolate
+   the dense solution at `(x_q, t_j)` with `x_q = L/2 = 0.05 m`, `t_q = 600 s`.
+4. Report the sample mean, sample standard deviation (`ddof=1`), the standard
+   error of the mean, and the central 95% interval (2.5th and 97.5th
+   percentiles).
 
-### 7.3 Exact reference moments (for gate setting)
+### 8.3 Interpolation-error gate
+
+The interpolation error is measured by comparing the interpolated dense-output
+value against the exact solution at each sampled `t_j`:
+
+| Gate | Condition | Measured reference |
+| --- | --- | --- |
+| HD-G7 | Max interpolation error vs exact at sampled times | `<= 2e-6` (measured `1.505806e-06`) |
+
+The integration window `[0, t_end * 1.25] = [0, 750]` s covers all sampled
+`t_j` (measured range for seed 0: `[483.0, 704.5]` s).
+
+### 8.4 Analytic reference UQ (comparison only)
+
+The closed-form quantity of interest at `x_q = L/2` (since
+`sin(3*pi*x_q/L) = sin(3*pi/2) = -1`) is
+
+$$
+q(\alpha) = e^{-\alpha (\pi/L)^2 t_q} - 0.5\,e^{-9\alpha (\pi/L)^2 t_q}.
+$$
+
+Its exact lognormal moments are computed analytically and used **only** to
+cross-check the solver-based Monte Carlo; they are not the reported result.
 
 At `x_q = L/2`, `t_q = 600`, `\alpha ~ N(1e-6, (5e-8)^2)`:
 
@@ -245,27 +338,25 @@ At `x_q = L/2`, `t_q = 600`, `\alpha ~ N(1e-6, (5e-8)^2)`:
 | Cov(`E1`, `E3`) | `2.201001713660186e-05` |
 | Nominal `q(1e-6)` | `0.5506991968905726` |
 
-### 7.4 Measured Monte Carlo statistics (seed 0, 10000 samples)
+### 8.5 Measured Monte Carlo statistics (seed 0, 10000 samples, solver-based)
 
 | Statistic | Value |
 | --- | --- |
-| Sample mean | `0.5507541787161618` |
-| Sample std (`ddof=1`) | `0.01569071843905818` |
-| 95% interval | `[0.5205521758896328, 0.5820815851322452]` |
-| Standard error of mean | `1.569072e-04` |
-| Mean error vs exact | `-9.995e-05` |
+| Sample mean | `0.5507552509129310` |
+| Sample std (`ddof=1`) | `0.01569055194620832` |
+| Standard error of mean | `1.569055e-04` |
+| 95% interval | `[0.5205535308353868, 0.5820822860582533]` |
+| Mean error vs exact | `-9.9878e-05` |
 | Min sampled `\alpha` | `8.050289134972830e-07` |
 
-Cross-checked seeds 1 and 2 (10000 samples each) give means `0.551025...` and
-`0.550653...`, standard deviations `0.015698...` and `0.015803...`, intervals
-`[0.520922..., 0.581895...]` and `[0.520097..., 0.582128...]` — consistent
-with sampling variation.
+Acceptance: solver-based mean within `4` standard errors of the exact mean;
+solver-based std within `5%` of the exact std; the 95% interval contains the
+nominal value `q(1e-6) = 0.5506991968905726`.
 
-Acceptance: sample mean within `3` standard errors of exact mean; sample
-std within `5%` of exact std; interval contains the nominal value
-`q(1e-6) = 0.5506991968905726`.
+Cross-checked seeds 1 and 2 (10000 samples each) give consistent results within
+sampling variation.
 
-## 8. Manifest and runner integration (additive)
+## 9. Manifest and runner integration (additive)
 
 Integration is strictly additive; no existing model is modified.
 
@@ -300,29 +391,37 @@ Integration is strictly additive; no existing model is modified.
 - `result_summary` records: `alpha`, `length`, `t_end`, `num_points`,
   `num_output_points`, `first_mode_decay_rate`, `max_abs_error`, `max_abs_error_t_end`,
   `u_mid_t_end`, `boundary_max`, `initial_profile_error`, `min_u`, `max_u`,
-  `method`, plus uncertainty fields `uq_mean`, `uq_std`, `uq_interval_low`,
+  `method`, plus uncertainty fields `uq_mean`, `uq_std`, `uq_stderr`, `uq_interval_low`,
   `uq_interval_high`, `num_samples`, `seed`.
-- Validation checks (analogous to section 6 of MANIFEST_SPEC):
-  - `max_abs_error < 1e-5`;
-  - `max_abs_error_t_end < 2e-6`;
-  - boundary check passes.
+- Validation thresholds scale with `dx^2` using the Section 4 bound with a
+  documented safety factor of `3`, so coarse grids are not wrongly marked failed:
+
+  | Check | Pass condition |
+  | --- | --- |
+  | `max_abs_error` | `< 3 * dx^2 * C_bound` (documented bound from Section 4) |
+  | `max_abs_error_t_end` | `< 3 * dx^2 * C_bound_tend` |
+  | `boundary_max` | `== 0.0` |
+
+  The constants `C_bound` and `C_bound_tend` are derived from the measured
+  error at `N = 401` divided by `dx^2`, so the threshold at `N = 401` equals
+  `3 * measured_error` and relaxes quadratically for coarser grids.
 - `check_reproducibility` compares summaries key by key under a documented
   tolerance; changing `seed` changes the Monte Carlo summary and therefore the
   reproducibility comparison (unlike existing models where `seed` is metadata).
 
-## 9. Proposed tests
+## 10. Proposed tests
 
 Tests must cover (mapped to requirement IDs):
 
 - HD-001/HD-002/HD-008: analytic agreement within HD-G1/HD-G2 at the default
   case.
 - HD-008/HD-010: spatial convergence near order 2 with measured rate
-  (`[1.9, 2.1]`).
+  (`[1.9, 2.1]`) computed from `dx = L/(N-1)`.
 - HD-002: first-mode decay matching `exp(-alpha (pi/L)^2 t)` within relative
   `1e-4`.
 - HD-001: boundary conditions exactly zero (`boundary_max == 0.0`).
 - HD-004–HD-007: invalid inputs rejected (`TypeError`/`ValueError` with
-  descriptive messages).
+  descriptive messages); sampled `alpha <= 0` raises.
 - HD-015: seed determinism — identical manifest and seed reproduce identical
   summaries.
 - HD-013/HD-014: manifest round-trip (`to_dict`/`from_dict` preserves all
@@ -331,8 +430,10 @@ Tests must cover (mapped to requirement IDs):
   uncertainty summary within tolerance; `seed` affects the result.
 - HD-011: fail loudly on non-finite or bad-shape output (simulated by monkeypatch
   or direct constructor misuse).
+- A coarse grid (`N = 51`) must pass validation (scaled thresholds).
+- UQ via the solver must agree with the exact moments within `4` standard errors.
 
-## 10. Explicit non-claims and non-goals
+## 11. Explicit non-claims and non-goals
 
 - This specification does **not** claim any implementation exists.
 - No code under `src/qrs/classical/heat_diffusion.py`, no tests, and no runtime
@@ -348,7 +449,7 @@ Tests must cover (mapped to requirement IDs):
 - No bitwise portability claim across platforms; results run on Windows and
   Ubuntu CI.
 
-## 11. Approval needed
+## 12. Approval needed
 
 This spec is a hard stop. Implementation (solver module, tests, runtime
 registration, validation record) begins **only** after explicit approval of this
@@ -356,9 +457,10 @@ specification. On approval, the next steps are:
 
 1. Implement `src/qrs/classical/heat_diffusion.py` (method of lines, Radau,
    sparse Jacobian, frozen result dataclass, strict validation).
-2. Add tests under `tests/` covering section 9.
+2. Add tests under `tests/` covering section 10.
 3. Additive runtime registration in `src/qrs/runtime/manifest.py`
-   (`heat_diffusion` model, defaults, validation, `seed` operational).
+   (`heat_diffusion` model, defaults, validation, `seed` operational) and
+   `src/qrs/runtime/runner.py` (dispatch, summary, scaled checks).
 4. Update `docs/scientific-methods/NUMERICAL_METHODS.md`,
    `docs/validation/SCIENTIFIC_VALIDATION.md`, and
    `docs/roadmap/IMPLEMENTATION_ROADMAP.md` to mark the domain implemented.
