@@ -36,6 +36,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 from numbers import Integral
+from typing import Final
 
 import numpy as np
 from numpy.typing import NDArray
@@ -45,6 +46,11 @@ from scipy.integrate import solve_ivp
 from qrs.core.validation import require_finite_real, require_positive_finite
 
 _SUPPORTED_METHODS = frozenset({"Radau"})
+
+# Maximum allowed relative standard deviation for the uncertain diffusivity.
+# Above ~0.15, a sampled alpha <= 0 becomes likely with 10000 samples, so the
+# run raises at runtime.
+HEAT_MAX_ALPHA_RELATIVE_STD: Final[float] = 0.15
 
 
 @dataclass(frozen=True, slots=True)
@@ -132,8 +138,11 @@ def _validate_t_end(value: object, name: str) -> float:
 
 def _validate_alpha_relative_std(value: object, name: str) -> float:
     std = require_positive_finite(value, name)
-    if std >= 1.0:
-        raise ValueError(f"{name} must be less than 1, got {std!r}")
+    if std > HEAT_MAX_ALPHA_RELATIVE_STD:
+        raise ValueError(
+            f"{name} must be at most {HEAT_MAX_ALPHA_RELATIVE_STD} "
+            f"(larger values make a non-positive sampled alpha likely), got {std!r}"
+        )
     return std
 
 
@@ -453,7 +462,11 @@ def propagate_uncertainty(
 
     x_q = validated_length / 2.0
     t_q = validated_t_end
-    t_max = validated_t_end * 1.25
+
+    # Compute t_j immediately after the alpha > 0 check. The integration
+    # window must cover every t_j, so grow it if needed.
+    t_j = alpha_samples * t_q / validated_alpha
+    t_max = max(validated_t_end * 1.25, float(np.max(t_j)))
 
     mid_index = (count - 1) // 2  # exact because num_points is odd
     interior_index = mid_index - 1  # dense output excludes boundary columns
@@ -474,7 +487,6 @@ def propagate_uncertainty(
             atol=validated_atol,
         )
 
-        t_j = alpha_samples * t_q / validated_alpha
         if np.max(t_j) > t_max:
             raise ValueError(
                 f"max(t_j) = {np.max(t_j):.6e} exceeds t_max = {t_max:.6e}; "

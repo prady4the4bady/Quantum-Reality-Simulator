@@ -1,9 +1,11 @@
 """Manifest execution and reproducibility checks for the QRS runtime.
 
 The runner is intentionally thin: it validates manifest identity, maps the
-manifest's flat scalar parameters onto the existing Phase 1 physics functions,
-and records the returned metrics in a result envelope. It does not modify or
-reimplement any physics.
+manifest's flat scalar parameters onto the physics functions in ``qrs.classical``,
+and records the returned metrics in a result envelope. Physics and uncertainty
+propagation (including Monte Carlo diffusivity sampling) live in ``qrs.classical``;
+the runner only dispatches and records. It does not modify or reimplement any
+physics.
 """
 
 from __future__ import annotations
