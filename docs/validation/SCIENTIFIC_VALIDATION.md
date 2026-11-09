@@ -609,7 +609,7 @@ Python 3.12.10, repo-local `.venv`, NumPy 2.5.4, SciPy 1.18.1.
 The model solves `u_t = alpha * u_xx` on `0 < x < L` with zero Dirichlet
 boundaries and initial profile `sin(pi x/L) + 0.5*sin(3*pi x/L)`. All
 quantities use SI units. Domain of validity: `alpha > 0`, `L > 0`, `t >= 0`,
-`num_points >= 3`.
+`num_points` an odd integer `>= 3`.
 
 ### 11.2 Solver
 
@@ -651,9 +651,11 @@ Projection onto the first sine mode at `N = 401`:
 
 ### 11.6 Uncertainty propagation
 
-Diffusivity `alpha ~ Normal(1e-6, (5e-8)^2)`, propagated through the numerical
-solver via dense-output interpolation at `t_j = alpha_j * t_q / alpha0`
-(`x_q = L/2 = 0.05 m`, `t_q = 600 s`), seed 0, 10000 samples:
+Diffusivity `alpha ~ Normal(1e-6, (5e-8)^2)` — the `5%` relative standard
+deviation is an assumed input, not a measured one — propagated through the
+numerical solver via dense-output interpolation at
+`t_j = alpha_j * t_q / alpha0` (`x_q = L/2 = 0.05 m`, `t_q = 600 s`), seed 0,
+10000 samples. The integration window is `t_max = max(1.25 * t_end, max(t_j))`.
 
 | Statistic | Value |
 | --- | --- |

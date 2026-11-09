@@ -2,17 +2,15 @@
 
 | Field | Value |
 | --- | --- |
-| Status | **Proposed — pending explicit approval. Not implemented.** |
-| Scope | Specification only; no solver code, no tests, no runtime changes |
+| Status | **Implemented** (merged in commit bcbb045; follow-up work on branch phase3-followups) |
+| Scope | Solver, tests, runtime registration, and documentation |
 | Related | [System architecture](../architecture/SYSTEM_ARCHITECTURE.md), [Numerical methods](../scientific-methods/NUMERICAL_METHODS.md), [Scientific validation](../validation/SCIENTIFIC_VALIDATION.md), [Implementation roadmap](../roadmap/IMPLEMENTATION_ROADMAP.md), [Experiment runtime](../runtime/MANIFEST_SPEC.md) |
 
-> This document is a **candidate specification**. It describes what the Phase 3
-> heat-diffusion domain should compute once approved and implemented. It does
-> not describe existing code. No implementation exists under
-> `src/qrs/classical/heat_diffusion.py`, no tests exist, and no runtime
-> registration exists yet. Nothing in this document may be treated as
-> implemented behaviour until this spec is approved and the corresponding code,
-> tests, and runtime integration are committed and validated.
+This document describes the implemented Phase 3 heat-diffusion domain. The
+solver lives at `src/qrs/classical/heat_diffusion.py`, tests at
+`tests/unit/test_heat_diffusion.py` and
+`tests/scientific/test_heat_diffusion_scientific.py`, and runtime registration
+at `src/qrs/runtime/manifest.py` and `src/qrs/runtime/runner.py`.
 
 ## 1. Purpose
 
@@ -67,12 +65,12 @@ All quantities use SI units consistently.
 - `t >= 0` (non-negative, finite simulation time).
 - The initial profile satisfies the boundary conditions exactly
   (`u(0,0) = u(L,0) = 0`).
-- Grid points `num_points >= 3` (at least one interior point).
+- Grid points `num_points` must be an odd integer `>= 3` (so that `L/2` lies exactly on a grid point).
 - The problem is linear, parabolic, and stiff for fine grids; the proposed
   solver is an implicit method suitable for stiff systems.
 - No heat sources, no time-varying diffusivity, no radiation or convection.
 
-The domain of validity is `alpha > 0`, `L > 0`, `t >= 0`, `num_points >= 3`.
+The domain of validity is `alpha > 0`, `L > 0`, `t >= 0`, `num_points` an odd integer `>= 3`.
 Inputs outside this range are rejected with a descriptive error (see
 requirements HD-004–HD-007).
 
@@ -156,7 +154,7 @@ safety factor.
 | HD-004 | Reject `alpha <= 0` or non-finite `alpha`. |
 | HD-005 | Reject `L <= 0` or non-finite `L`. |
 | HD-006 | Reject `t_end < 0` or non-finite `t_end`; require `t_end >= t_start` (with `t_start = 0`). |
-| HD-007 | Require `num_points >= 3` (integer, booleans rejected). |
+| HD-007 | Require `num_points` an odd integer `>= 3` (booleans rejected). |
 | HD-008 | Method of lines with second-order central differences in space. |
 | HD-009 | Time integration with `solve_ivp` Radau, `rtol=1e-10`, `atol=1e-12`. |
 | HD-010 | Constant sparse tridiagonal CSC Jacobian supplied to Radau. |
@@ -279,8 +277,10 @@ $$
 $$
 
 Candidate default: `\alpha_0 = 1e-6`, `\alpha_relative_std = 0.05`, so
-`\sigma_\alpha = 5e-8`. Any sampled `\alpha <= 0` is rejected before the solver
-is called (HD-004).
+`\sigma_\alpha = 5e-8`. The allowed range is `0 < alpha_relative_std <= 0.15`;
+larger values make a non-positive sampled alpha likely with 10000 samples, so
+the run raises at runtime (HD-004). Any sampled `\alpha <= 0` is rejected
+before the solver is called (no filtering).
 
 ### 8.2 Solver-based Monte Carlo propagation (primary)
 
@@ -293,9 +293,9 @@ $$
 
 Procedure:
 
-1. Run `solve_ivp` **once** at `\alpha_0` with dense output (or a fine `t_eval`
-   and cubic interpolation) over `[0, t_end * 1.25]` so every `t_j` is inside
-   the integration window.
+1. Run `solve_ivp` **once** at `\alpha_0` with dense output over
+   `[0, t_max]` where `t_max = max(1.25 * t_end, max(t_j))`, so every `t_j`
+   is inside the integration window.
 2. Draw `num_samples` samples `\alpha_j \sim \mathrm{Normal}(\alpha_0, \sigma_\alpha)`
    using `numpy.random.default_rng(seed)`; reject any `\alpha_j <= 0`.
 3. For each sample, evaluate `t_j = \alpha_j * t_q / \alpha_0` and interpolate
@@ -313,8 +313,8 @@ value against the exact solution at each sampled `t_j`:
 | --- | --- | --- |
 | HD-G7 | Max interpolation error vs exact at sampled times | `<= 2e-6` (measured `1.505806e-06`) |
 
-The integration window `[0, t_end * 1.25] = [0, 750]` s covers all sampled
-`t_j` (measured range for seed 0: `[483.0, 704.5]` s).
+The integration window `t_max = max(1.25 * t_end, max(t_j))` covers all sampled
+`t_j`.
 
 ### 8.4 Analytic reference UQ (comparison only)
 
@@ -379,8 +379,9 @@ Integration is strictly additive; no existing model is modified.
   | `atol` | `1e-12` |
 
 - Model-specific validation (`HD-004`–`HD-007`): `alpha` and `length`
-  positive finite; `t_end` finite and `>= 0`; `num_points` integer `>= 3`;
-  `num_output_points` integer `>= 2`; `rtol`/`atol` positive finite; unknown or
+  positive finite; `t_end` finite and `>= 0`; `num_points` an odd integer `>= 3`;
+  `num_output_points` integer `>= 2`; `alpha_relative_std` in `(0, 0.15]`;
+  `num_samples` integer `>= 2`; `rtol`/`atol` positive finite; unknown or
   missing keys rejected.
 - `seed` becomes operational for heat diffusion: it seeds
   `numpy.random.default_rng(seed)` for the Monte Carlo uncertainty
@@ -393,18 +394,23 @@ Integration is strictly additive; no existing model is modified.
   `u_mid_t_end`, `boundary_max`, `initial_profile_error`, `min_u`, `max_u`,
   `method`, plus uncertainty fields `uq_mean`, `uq_std`, `uq_stderr`, `uq_interval_low`,
   `uq_interval_high`, `num_samples`, `seed`.
-- Validation thresholds scale with `dx^2` using the Section 4 bound with a
-  documented safety factor of `3`, so coarse grids are not wrongly marked failed:
+- Validation thresholds use the analytic error bound from Section 4 with a
+  documented safety factor of `1.5`. For initial sine modes n=1 (amplitude 1)
+  and n=3 (amplitude 0.5):
+
+      eps_n = (n * pi / (N - 1))**2 / 12
+      bound = sum(a_n * eps_n) * exp(-1)
+      threshold = 1.5 * bound
+
+  so coarse grids are not wrongly marked failed:
 
   | Check | Pass condition |
   | --- | --- |
-  | `max_abs_error` | `< 3 * dx^2 * C_bound` (documented bound from Section 4) |
-  | `max_abs_error_t_end` | `< 3 * dx^2 * C_bound_tend` |
+  | `max_abs_error` | `< 1.5 * bound` |
+  | `max_abs_error_t_end` | `< 1.5 * bound` |
   | `boundary_max` | `== 0.0` |
 
-  The constants `C_bound` and `C_bound_tend` are derived from the measured
-  error at `N = 401` divided by `dx^2`, so the threshold at `N = 401` equals
-  `3 * measured_error` and relaxes quadratically for coarser grids.
+  The bound scales as `dx^2` and relaxes quadratically for coarser grids.
 - `check_reproducibility` compares summaries key by key under a documented
   tolerance; changing `seed` changes the Monte Carlo summary and therefore the
   reproducibility comparison (unlike existing models where `seed` is metadata).
@@ -435,9 +441,8 @@ Tests must cover (mapped to requirement IDs):
 
 ## 11. Explicit non-claims and non-goals
 
-- This specification does **not** claim any implementation exists.
-- No code under `src/qrs/classical/heat_diffusion.py`, no tests, and no runtime
-  registration exists yet.
+- This specification describes the implemented domain; the code, tests, and
+  runtime registration all exist.
 - No claim of real-world predictive accuracy beyond the validated range.
 - No parameter sweeps, batch execution, persistence, databases, dashboards, or
   AI-assisted experiment design.
@@ -449,22 +454,27 @@ Tests must cover (mapped to requirement IDs):
 - No bitwise portability claim across platforms; results run on Windows and
   Ubuntu CI.
 
-## 12. Approval needed
+## 12. Implementation status
 
-This spec is a hard stop. Implementation (solver module, tests, runtime
-registration, validation record) begins **only** after explicit approval of this
-specification. On approval, the next steps are:
+The domain is implemented (merged in commit bcbb045). Follow-up fixes are on
+branch `phase3-followups`.
 
-1. Implement `src/qrs/classical/heat_diffusion.py` (method of lines, Radau,
-   sparse Jacobian, frozen result dataclass, strict validation).
-2. Add tests under `tests/` covering section 10.
-3. Additive runtime registration in `src/qrs/runtime/manifest.py`
-   (`heat_diffusion` model, defaults, validation, `seed` operational) and
-   `src/qrs/runtime/runner.py` (dispatch, summary, scaled checks).
-4. Update `docs/scientific-methods/NUMERICAL_METHODS.md`,
+Implementation summary:
+
+1. `src/qrs/classical/heat_diffusion.py` — method of lines, Radau
+   (rtol=1e-10, atol=1e-12), sparse Jacobian, frozen result dataclass,
+   strict validation, dense-output solver for UQ, `propagate_uncertainty()`.
+2. `tests/unit/test_heat_diffusion.py` and
+   `tests/scientific/test_heat_diffusion_scientific.py` — cover section 10.
+3. `src/qrs/runtime/manifest.py` — `heat_diffusion` model, defaults,
+   validation, `seed` operational for Monte Carlo.
+4. `src/qrs/runtime/runner.py` — dispatch, summary, analytic-bound validation
+   thresholds.
+5. `docs/scientific-methods/NUMERICAL_METHODS.md`,
    `docs/validation/SCIENTIFIC_VALIDATION.md`, and
-   `docs/roadmap/IMPLEMENTATION_ROADMAP.md` to mark the domain implemented.
-5. Run `.venv\Scripts\python.exe -m ruff check .`,
-   `ruff format --check .`, `pytest tests -q`.
-6. Commit locally only on `phase3-heat-diffusion`; no push, merge, PR, or
+   `docs/roadmap/IMPLEMENTATION_ROADMAP.md` updated to mark the domain
+   implemented.
+6. `.venv\Scripts\python.exe -m ruff check .`, `ruff format --check .`,
+   `pytest tests -q` all pass.
+7. Committed locally on `phase3-heat-diffusion`; no push, merge, PR, or
    history rewrite.
