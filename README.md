@@ -4,27 +4,32 @@ QRS is a local-first, modular simulation platform intended to combine classical
 numerical computing, genuine quantum-circuit simulation, domain-specific
 scientific models, data management, experiment storage, and visualisation.
 
-**Current status: Phase 1 scientific foundation.** Two small, independently
-tested prototypes are implemented. The wider multi-domain platform is planned,
-not implemented. Nothing in this repository should be interpreted as a working
+**Current status: Phase 1 scientific foundation plus the Phase 2 experiment
+runtime.** Two small, independently tested prototypes are implemented and
+wrapped in reproducible manifest and result-envelope records. The wider
+multi-domain platform is planned, not implemented. Parameter sweeps, experiment
+persistence, storage, visualisation, and all domain simulators remain
+unimplemented. Nothing in this repository should be interpreted as a working
 geopolitical, economic, climate, or other domain simulator yet.
 
-## Implemented in Phase 1
+## Implemented
 
 | Capability | Implementation | Status |
 | --- | --- | --- |
 | Classical harmonic oscillator `m*x'' + k*x = 0` | SciPy `solve_ivp`, analytical comparison, energy tracking | Implemented and validated |
 | Quantum Bell state `|Phi+> = (|00> + |11>)/sqrt(2)` | PennyLane `default.qubit`, H + CNOT, statevector and correlations | Implemented and validated |
 | Shared scalar validation | `qrs.core.validation` | Implemented |
-| Automated tests | Pytest unit, scientific, and integration suites | Implemented, 93 tests passing |
+| Experiment runtime | `qrs.runtime`: canonical manifests, result envelopes, manifest runner, reproducibility check | Implemented and tested |
+| Automated tests | Pytest unit, scientific, and integration suites | Implemented, 342 tests passing |
 | Lint and formatting | Ruff | Implemented, clean |
 
 ## Not implemented yet
 
 The following are planned only: the eleven simulation domains, real-world data
 ingestion, digital-twin state management, scenario and optimisation workflows,
-experiment persistence, visualisation, AI-assisted orchestration, and any web or
-desktop interface. See [ROADMAP.md](ROADMAP.md).
+parameter sweeps, experiment persistence, storage, visualisation, AI-assisted
+orchestration, and any web or desktop interface. See [ROADMAP.md](ROADMAP.md)
+and [docs/runtime/MANIFEST_SPEC.md](docs/runtime/MANIFEST_SPEC.md).
 
 The language model is never part of the numerical path. All reported scientific
 results come from locally executed NumPy, SciPy, and PennyLane computation.
@@ -34,7 +39,8 @@ results come from locally executed NumPy, SciPy, and PennyLane computation.
 - Python **3.12.x** (validated with 3.12.10).
 - A CPU is sufficient. No CUDA libraries, GPU quantum backends, paid APIs, or
   cloud inference are required or used.
-- Windows was used for Phase 1 validation; the code is platform-neutral.
+- Windows was used for validation of the implemented phases; the code is
+  platform-neutral.
 
 ## Quick start (Windows PowerShell)
 
@@ -70,12 +76,14 @@ Run the end-to-end smoke check:
 .venv\Scripts\python.exe -m pytest tests -q
 
 # Lint and formatting
-.venv\Scripts\python.exe -m ruff check src tests examples
-.venv\Scripts\python.exe -m ruff format --check src tests examples
+.venv\Scripts\python.exe -m ruff check .
+.venv\Scripts\python.exe -m ruff format --check .
 ```
 
 Latest verified results are recorded in
-[docs/validation/SCIENTIFIC_VALIDATION.md](docs/validation/SCIENTIFIC_VALIDATION.md).
+[docs/validation/SCIENTIFIC_VALIDATION.md](docs/validation/SCIENTIFIC_VALIDATION.md)
+and the runtime contract in
+[docs/runtime/MANIFEST_SPEC.md](docs/runtime/MANIFEST_SPEC.md).
 
 ## Headline validated results
 
@@ -109,12 +117,14 @@ Quantum-Reality-Simulator/
 │   ├── architecture/SYSTEM_ARCHITECTURE.md
 │   ├── scientific-methods/NUMERICAL_METHODS.md
 │   ├── validation/SCIENTIFIC_VALIDATION.md
+│   ├── runtime/MANIFEST_SPEC.md
 │   ├── decisions/ARCHITECTURAL_DECISIONS.md
 │   └── roadmap/IMPLEMENTATION_ROADMAP.md
 ├── src/qrs/
 │   ├── core/          # shared validation helpers
 │   ├── classical/     # SciPy harmonic oscillator
-│   └── quantum/       # PennyLane Bell state
+│   ├── quantum/       # PennyLane Bell state
+│   └── runtime/       # manifests, envelopes, runner, reproducibility
 ├── tests/
 │   ├── unit/
 │   ├── scientific/
@@ -135,6 +145,7 @@ placeholders.
 | [docs/architecture/SYSTEM_ARCHITECTURE.md](docs/architecture/SYSTEM_ARCHITECTURE.md) | Layers, module boundaries, dependency rules |
 | [docs/scientific-methods/NUMERICAL_METHODS.md](docs/scientific-methods/NUMERICAL_METHODS.md) | Equations, numerical methods, conventions, assumptions |
 | [docs/validation/SCIENTIFIC_VALIDATION.md](docs/validation/SCIENTIFIC_VALIDATION.md) | Measured validation evidence and limitations |
+| [docs/runtime/MANIFEST_SPEC.md](docs/runtime/MANIFEST_SPEC.md) | Manifest, envelope, runner, and reproducibility specification |
 | [docs/decisions/ARCHITECTURAL_DECISIONS.md](docs/decisions/ARCHITECTURAL_DECISIONS.md) | Architecture decision records |
 | [docs/roadmap/IMPLEMENTATION_ROADMAP.md](docs/roadmap/IMPLEMENTATION_ROADMAP.md) | Phased plan and acceptance criteria |
 | [SECURITY.md](SECURITY.md) | Security policy and operational restrictions |
@@ -159,5 +170,5 @@ license is added.
 ## Security
 
 Do not commit credentials, `.env` files, API keys, or generated artefacts. See
-[SECURITY.md](SECURITY.md). Phase 1 runs entirely offline and uses no paid or
-cloud inference services.
+[SECURITY.md](SECURITY.md). The implemented phases run entirely offline and use
+no paid or cloud inference services.

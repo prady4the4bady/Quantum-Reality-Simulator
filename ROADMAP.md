@@ -17,8 +17,8 @@ criteria are in
 | --- | --- | --- |
 | 0 | Repository, branch, Python 3.12 environment, dependency pinning | Implemented |
 | 1 | Classical harmonic oscillator and PennyLane Bell state, docs, tests, lint | Implemented |
-| 2 | Experiment runtime: parameter sweeps, run manifests, result serialisation | Next |
-| 3 | Second classical domain with real reference data and uncertainty reporting | Planned |
+| 2 | Experiment runtime: manifests, result envelopes, runner, reproducibility check | Implemented |
+| 3 | Second classical domain with real reference data and uncertainty reporting | Next |
 | 4 | Hybrid classical–quantum interface and noise-aware execution | Planned |
 | 5 | Storage, provenance, and reproducibility layer | Planned |
 | 6 | Visualisation and scenario comparison | Planned |
@@ -39,22 +39,45 @@ criteria are in
 - Documentation distinguishes implemented from planned features.
 - Local commit only; no push, merge, or pull request.
 
+## Phase 2 acceptance criteria (met)
+
+- Frozen, slotted experiment manifest with `schema_version=1` and deterministic
+  SHA-256 `experiment_id`.
+- Canonical JSON with sorted keys, fixed separators, UTF-8, and rejection of
+  NaN and infinity.
+- Manifest validation rejects unknown models, unknown or missing fields, wrong
+  types, non-finite numbers, and unsupported schema versions.
+- Frozen result envelope containing manifest, scalar result summary,
+  validation status and details, artefact references, and schema version.
+- `run_manifest` dispatches `harmonic_oscillator` and `bell_state` to the
+  existing Phase 1 physics functions and records measured error metrics without
+  modifying physics code.
+- `check_reproducibility` re-runs a manifest, compares summaries, and rejects
+  seed or environment drift unless explicitly allowed.
+- Runtime contract documented in
+  [docs/runtime/MANIFEST_SPEC.md](docs/runtime/MANIFEST_SPEC.md).
+- 249 Phase 2 tests passing; full suite 342 passing; Ruff lint and format
+  checks clean.
+- Local commit only; no push, merge, or pull request.
+
 ## Near-term priorities
 
-1. Define a stable result and experiment metadata schema before adding domains.
-2. Add reproducibility manifests (parameters, versions, seeds, timestamps,
-   platform).
-3. Select the second domain based on data availability and the ability to
-   validate against an independent reference.
-4. Introduce uncertainty quantification before claiming predictive value.
-5. Keep the AI layer optional, local-first, and unable to alter numerical
+1. Select the Phase 3 classical domain based on reference-data availability and
+   the ability to validate against an independent source.
+2. Define the uncertainty-reporting contract for Phase 3 before adding any
+   domain module.
+3. Treat parameter sweeps and result persistence as explicit future runtime
+   extensions; neither is implemented in Phase 2.
+4. Keep the AI layer optional, local-first, and unable to alter numerical
    results.
 
-## Explicit non-goals for Phase 1
+## Explicit non-goals for implemented phases
 
 - Simulating all eleven domains.
 - Claiming real-world predictive accuracy.
+- Parameter sweeps and batch experiment orchestration.
+- Experiment persistence, databases, or result storage.
+- Dashboards, visualisation, or user-interface work.
 - GPU acceleration.
 - Cloud or paid inference.
-- User interface work.
 - Multi-user storage or collaboration.

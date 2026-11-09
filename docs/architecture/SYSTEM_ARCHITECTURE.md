@@ -1,15 +1,15 @@
-# System Architecture — QRS Phase 1
+# System Architecture — QRS Phase 2
 
 | Field | Value |
 | --- | --- |
-| Status | Phase 1 baseline |
-| Scope | Implemented foundation plus planned layers |
-| Related | [Project brief](../requirements/PROJECT_BRIEF.md), [Numerical methods](../scientific-methods/NUMERICAL_METHODS.md), [Decisions](../decisions/ARCHITECTURAL_DECISIONS.md) |
+| Status | Phase 2 runtime implemented |
+| Scope | Implemented foundation and experiment runtime plus planned layers |
+| Related | [Project brief](../requirements/PROJECT_BRIEF.md), [Numerical methods](../scientific-methods/NUMERICAL_METHODS.md), [Runtime specification](../runtime/MANIFEST_SPEC.md), [Decisions](../decisions/ARCHITECTURAL_DECISIONS.md) |
 
 > **Status legend**
 > - **Implemented** — present in this repository, tested, and validated.
 > - **Planned** — designed conceptually, not implemented.
-> - **Absent by design** — intentionally not created in Phase 1.
+> - **Absent by design** — intentionally not created in the implemented phases.
 
 ## 1. Architectural goals
 
@@ -50,6 +50,12 @@
 |              +------------+-------------+                             |
 |                           |                                           |
 |              +------------v-------------+                             |
+|              | Implemented: experiment  |                             |
+|              | runtime (manifests,      |                             |
+|              | envelopes, checks)       |                             |
+|              +------------+-------------+                             |
+|                           |                                           |
+|              +------------v-------------+                             |
 |              | Planned: storage,        |                             |
 |              | provenance, visualisation|                             |
 |              +--------------------------+                             |
@@ -64,8 +70,10 @@
 ```
 
 Phase 1 implements the two engines, the shared validation module, the result
-objects, the examples, and the test suite. Everything downstream of the result
-objects is planned.
+objects, the examples, and the test suite. Phase 2 adds the experiment runtime:
+canonical manifests, result envelopes, manifest execution, and reproducibility
+checks. Everything downstream of the runtime — persistence, storage,
+visualisation, and external data — is planned.
 
 ## 3. Layered architecture
 
@@ -80,9 +88,17 @@ objects is planned.
 +-------------------------------+-------------------------------+
                                 |
 +-------------------------------v-------------------------------+
+| Experiment runtime                                            |
+| qrs.runtime.serialization   canonical JSON                    |
+| qrs.runtime.manifest        ExperimentManifest                |
+| qrs.runtime.envelope        ResultEnvelope                    |
+| qrs.runtime.runner          run_manifest, check_reproducibility|
++-------------------------------+-------------------------------+
+                                |
++-------------------------------v-------------------------------+
 | Domain modules                                                |
-| qrs.classical.harmonic_oscillator                               |
-| qrs.quantum.bell_state                                         |
+| qrs.classical.harmonic_oscillator                             |
+| qrs.quantum.bell_state                                        |
 +-------------------------------+-------------------------------+
                                 |
 +-------------------------------v-------------------------------+
@@ -102,7 +118,7 @@ objects is planned.
 | --- | --- | --- | --- |
 | Domain models | Geopolitics, economics, climate, weather, physics, chemistry, biology, engineering, materials, human systems, transportation, hypothetical scenarios | `core`, NumPy, SciPy | Planned |
 | Data ingestion | Source adapters, provenance, schema validation, versioned datasets | `core`, domain schemas | Planned |
-| Experiment runtime | Parameter sweeps, scenarios, reproducible manifests | Domain models, `core` | Planned |
+| Parameter sweeps | Batch manifests, scenario comparison, aggregated summaries | `runtime`, domain models | Planned |
 | Storage | Run metadata, result arrays, dataset and artefact references | Experiment runtime | Planned |
 | Visualisation | Plots, dashboards, interactive comparison | Storage, result objects | Planned |
 | AI orchestration | Experiment setup assistance and natural-language explanation | Storage, result objects | Planned |
@@ -117,38 +133,46 @@ objects is planned.
 | `src/qrs/core/validation.py` | Strict scalar validation | `require_finite_real`, `require_positive_finite` |
 | `src/qrs/classical/harmonic_oscillator.py` | Classical model, integration, analytical reference, metrics | `simulate_harmonic_oscillator`, `HarmonicOscillatorResult` |
 | `src/qrs/quantum/bell_state.py` | Bell-state circuit, device execution, correlations, CHSH, purity, fidelity | `simulate_bell_state`, `BellStateResult` |
+| `src/qrs/runtime/serialization.py` | Canonical JSON and immutable scalar mappings | `canonical_json_dumps`, `freeze_scalar_mapping` |
+| `src/qrs/runtime/manifest.py` | Manifest schema, environment capture, deterministic identifier | `ExperimentManifest`, `capture_environment` |
+| `src/qrs/runtime/envelope.py` | Immutable result envelope and nested manifest verification | `ResultEnvelope` |
+| `src/qrs/runtime/runner.py` | Manifest dispatch, result summaries, validation, reproducibility | `run_manifest`, `check_reproducibility` |
 | `examples/classical_harmonic_oscillator.py` | Human-readable oscillator run | `main()` |
 | `examples/bell_state.py` | Human-readable Bell-state run | `main()` |
 | `examples/verify_foundation.py` | End-to-end smoke check with non-zero exit on failure | `main()` |
-| `tests/unit/` | Interface, validation, and contract tests | Pytest |
+| `tests/unit/` | Interface, validation, runtime contract, and serialisation tests | Pytest |
 | `tests/scientific/` | Agreement with analytical or independent references | Pytest |
-| `tests/integration/` | Both prototypes exercised together | Pytest |
+| `tests/integration/` | Both prototypes and the runtime exercised together | Pytest |
 
 ### 4.2 Absent by design
 
-- `src/qrs/experiments/` — no experiment runtime exists yet.
+- `src/qrs/experiments/` — the runtime lives in `qrs.runtime`; no separate
+  experiments package, parameter-sweep engine, or persistence layer exists.
 - `src/qrs/validation/` — scientific validation lives in `tests/scientific`;
-  a separate runtime validation package has no real content yet.
+  runtime validation lives in `qrs.runtime.runner`.
 - `src/qrs/utils/` — generic dumping grounds are prohibited; helpers belong to
   the module that owns them.
 - `src/qrs/ai/`, `src/qrs/storage/`, `src/qrs/visualisation/` — planned, not
   scaffolded.
-- Web, desktop, or API entry points — not part of Phase 1.
+- Web, desktop, or API entry points — not part of the implemented phases.
 
 ## 5. Dependency rules
 
 1. `qrs.core` depends only on the Python standard library.
 2. `qrs.classical` may depend on `qrs.core`, NumPy, and SciPy.
 3. `qrs.quantum` may depend on `qrs.core`, NumPy, and PennyLane.
-4. `qrs.classical` and `qrs.quantum` must not import each other. A hybrid
+4. `qrs.runtime` may depend on `qrs.core`, `qrs.classical`, `qrs.quantum`, and
+   the Python standard library. It must not reimplement physics, and it must
+   not import AI, network, UI, or storage libraries.
+5. `qrs.classical` and `qrs.quantum` must not import each other. A hybrid
    interface, when introduced, must be an explicit new module.
-5. No numerical module may import an AI client, network client, UI framework,
+6. No numerical module may import an AI client, network client, UI framework,
    or storage backend.
-6. Storage and visualisation consume result objects; they do not re-implement
+7. Storage and visualisation consume result objects; they do not re-implement
    scientific equations.
-7. The AI layer may read validated results and metadata. It must not compute,
+8. The AI layer may read validated results and metadata. It must not compute,
    alter, or fabricate numerical outcomes.
-8. Tests may import public APIs and, where necessary, module-private constants
+9. Tests may import public APIs and, where necessary, module-private constants
    for convention checks. Tests must not depend on implementation details that
    are not part of the documented contract.
 
@@ -162,9 +186,15 @@ examples/*  --->  qrs.classical  --->  qrs.core
      +---------->  qrs.quantum   --->  qrs.core
                        |
                        +------------> numpy, pennylane
+
+qrs.runtime  --->  qrs.classical
+     |        --->  qrs.quantum
+     |        --->  qrs.core
+     +------------>  Python standard library
 ```
 
-There is no edge from `qrs.classical` to `qrs.quantum` or vice versa.
+There is no edge from `qrs.classical` to `qrs.quantum` or vice versa. The
+runtime calls the existing public physics functions and does not modify them.
 
 ## 6. Data flow
 
@@ -274,6 +304,11 @@ Frozen dataclass with `slots=True`.
 | Solver failure | `RuntimeError` | Environmental or numerical failure, not bad input |
 | Device returns wrong shape or non-finite data | `RuntimeError` | Contract violation by the backend |
 | Device state not normalized | `RuntimeError` | Scientific integrity check |
+| Malformed manifest field or unknown field | `TypeError` / `ValueError` | Invalid schema or value |
+| Unsupported manifest or envelope schema version | `ValueError` | No silent migration exists |
+| `experiment_id` does not match manifest content | `ValueError` | Detects tampering or stale identifiers |
+| Recorded and current environments differ | `RuntimeError` | Reproduction would not be like-for-like |
+| Manifest run or reproducibility check fails validation | `RuntimeError` | A failed validation is not a valid result |
 
 Validation is performed before expensive computation. Errors include the
 offending parameter name so callers can act without inspecting a traceback.
@@ -284,21 +319,44 @@ offending parameter name so callers can act without inspecting a traceback.
   platform floating-point behaviour.
 - The Bell-state circuit is analytic and deterministic. The integration test
   asserts that repeated runs return identical statevectors and CHSH values.
-- Random seeds are not used in Phase 1. No sampling or shot noise is involved.
+- Both implemented models are deterministic, so `seed` is non-negative metadata
+  and does not affect numerical results.
+- `ExperimentManifest` records the model, validated parameters, solver
+  configuration, seed, creation timestamp, and exact environment versions for
+  Python, NumPy, SciPy, PennyLane, QRS, and the platform.
+- `experiment_id` is a SHA-256 digest of canonical JSON over the schema version,
+  model, parameters, solver configuration, seed, and environment. `created_at`
+  and the identifier itself are excluded from the hash.
+- Canonical JSON uses sorted keys, fixed separators, UTF-8, and rejects NaN and
+  infinity. The same manifest content produces the same bytes and identifier.
+- `check_reproducibility` re-runs a manifest and compares result summaries.
+  Numeric values must agree within an absolute tolerance; non-numeric values
+  must match exactly.
+- Environment drift is rejected by default. `allow_environment_drift=True`
+  skips only that comparison; identifier integrity and summary comparison still
+  apply.
 - Exact dependency pins are recorded in `pyproject.toml`.
 - Python `3.12.x` is required; validation used `3.12.10`.
 - Platform: Windows, CPU only. The code itself is platform-neutral, but measured
-  floating-point results can differ in the last bits across platforms.
+  floating-point results can differ in the last bits across platforms, so
+  reproduction across environments is not claimed.
+- `experiment_id` is an integrity identifier, not an authentication signature.
+
+The detailed contract is in
+[MANIFEST_SPEC.md](../runtime/MANIFEST_SPEC.md).
 
 ## 10. Security boundary
 
-Phase 1 has no network service, authentication, authorisation, database, or
-file upload surface. The security boundary is therefore the local process and
-the repository contents:
+The implemented phases have no network service, authentication, authorisation,
+database, or file upload surface. The runtime writes no result files and no
+persistence layer exists. The security boundary is therefore the local process
+and the repository contents:
 
 - no credentials or `.env` files are committed;
 - no telemetry or cloud calls;
-- no AI or network imports in numerical modules;
+- no AI or network imports in numerical or runtime modules;
+- manifests and envelopes are not signed and are not an authentication or
+  authorisation mechanism;
 - no GPU or CUDA requirement;
 - no administrator privileges required.
 
@@ -321,27 +379,40 @@ A new domain module is accepted only when it provides:
 A module that cannot satisfy these conditions is not merged merely to increase
 domain count.
 
-## 12. Planned interfaces (not implemented)
+## 12. Runtime interfaces (implemented)
 
-The following are sketches only. They do not exist in the codebase.
+`ExperimentManifest` and `ResultEnvelope` are frozen, slotted dataclasses with
+`schema_version=1`.
 
 ```text
 ExperimentManifest
-  parameters
-  environment (python, packages, platform)
-  seed
-  model identifier
-  created_at
+  experiment_id   deterministic SHA-256 identifier
+  schema_version  1
+  model_name      harmonic_oscillator | bell_state
+  parameters      immutable scalar mapping
+  solver_config   immutable scalar mapping
+  seed            non-negative integer metadata
+  created_at      UTC timestamp, format YYYY-MM-DDTHH:MM:SSZ
+  environment     python, numpy, scipy, pennylane, qrs, platform
 
 ResultEnvelope
-  manifest reference
-  model result object
-  validation status
-  artefact references (plots, arrays, reports)
+  schema_version  1
+  manifest        ExperimentManifest
+  result_summary  immutable flat scalar mapping
+  validation_status   passed | failed
+  validation_details  statuses, counts, and check names
+  artefacts       tuple of relative POSIX paths; currently empty
 ```
 
-These names are illustrative. No schema, serialisation format, or storage
-technology has been selected. Defining that schema is Phase 2 work.
+`run_manifest` dispatches the two supported model names to the existing Phase 1
+physics functions and records measured metrics. No physics code is modified or
+reimplemented. `check_reproducibility` re-runs the manifest and compares result
+summaries under a documented tolerance.
+
+No parameter sweep, batch runner, storage backend, database, or result-file
+writer exists. Envelope artefact paths are a forward-compatible reference field,
+not evidence that artefacts were produced. The authoritative contract is
+[MANIFEST_SPEC.md](../runtime/MANIFEST_SPEC.md).
 
 ## 13. Architectural constraints on future work
 
