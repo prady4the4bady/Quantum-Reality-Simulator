@@ -392,8 +392,11 @@ class ExperimentManifest:
     solver_config:
         Flat, immutable mapping of solver settings with JSON scalar values.
     seed:
-        Non-negative integer metadata. Neither implemented model uses
-        randomness, so the seed does not alter numerical results.
+        Non-negative integer metadata. For ``harmonic_oscillator`` and
+        ``bell_state`` it does not alter numerical results; for
+        ``heat_diffusion`` it seeds ``numpy.random.default_rng`` for the
+        Monte Carlo diffusivity sampling, so changing it changes the
+        ``uq_*`` summary values.
     created_at:
         Creation time in UTC, formatted ``YYYY-MM-DDTHH:MM:SSZ``.
     environment:
@@ -438,6 +441,8 @@ class ExperimentManifest:
         Harmonic-oscillator manifests receive every optional parameter and
         solver key explicitly so the serialised content is self-contained.
         Bell-state manifests require empty ``parameters`` and ``solver_config``.
+        Heat-diffusion manifests also receive every default parameter and
+        solver key explicitly.
         """
 
         model = _validate_model_name(model_name)
