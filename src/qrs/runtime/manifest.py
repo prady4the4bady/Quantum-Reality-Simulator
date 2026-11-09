@@ -33,7 +33,10 @@ SCHEMA_VERSION: Final[int] = 1
 
 HARMONIC_OSCILLATOR: Final[str] = "harmonic_oscillator"
 BELL_STATE: Final[str] = "bell_state"
-SUPPORTED_MODEL_NAMES: Final[frozenset[str]] = frozenset({HARMONIC_OSCILLATOR, BELL_STATE})
+HEAT_DIFFUSION: Final[str] = "heat_diffusion"
+SUPPORTED_MODEL_NAMES: Final[frozenset[str]] = frozenset(
+    {HARMONIC_OSCILLATOR, BELL_STATE, HEAT_DIFFUSION}
+)
 
 ENVIRONMENT_KEYS: Final[tuple[str, ...]] = (
     "python",
@@ -75,6 +78,23 @@ _HARMONIC_SOLVER_DEFAULTS: Final[Mapping[str, Scalar]] = MappingProxyType(
     {
         "num_points": 1001,
         "method": "DOP853",
+        "rtol": 1e-10,
+        "atol": 1e-12,
+    }
+)
+
+_HEAT_DIFFUSION_PARAMETER_DEFAULTS: Final[Mapping[str, Scalar]] = MappingProxyType(
+    {
+        "alpha": 1e-6,
+        "length": 0.1,
+        "t_end": 600.0,
+        "num_points": 401,
+        "num_output_points": 101,
+    }
+)
+
+_HEAT_DIFFUSION_SOLVER_DEFAULTS: Final[Mapping[str, Scalar]] = MappingProxyType(
+    {
         "rtol": 1e-10,
         "atol": 1e-12,
     }
@@ -233,6 +253,53 @@ def _validate_harmonic_solver_config(solver_config: Mapping[str, Scalar]) -> Non
     require_positive_finite(solver_config["atol"], "solver_config['atol']")
 
 
+def _validate_heat_diffusion_parameters(parameters: Mapping[str, Scalar]) -> None:
+    allowed = frozenset(_HEAT_DIFFUSION_PARAMETER_DEFAULTS)
+    unknown = set(parameters) - allowed
+    if unknown:
+        names = ", ".join(sorted(unknown))
+        raise ValueError(f"unknown heat_diffusion parameter(s): {names}")
+    missing = allowed - set(parameters)
+    if missing:
+        names = ", ".join(sorted(missing))
+        raise ValueError(f"heat_diffusion is missing parameter(s): {names}")
+
+    require_positive_finite(parameters["alpha"], "parameters['alpha']")
+    require_positive_finite(parameters["length"], "parameters['length']")
+    t_end = require_finite_real(parameters["t_end"], "parameters['t_end']")
+    if t_end < 0.0:
+        raise ValueError(f"parameters['t_end'] must be non-negative, got {t_end!r}")
+
+    num_points = parameters["num_points"]
+    if isinstance(num_points, bool) or not isinstance(num_points, Integral):
+        raise TypeError("parameters['num_points'] must be an integer")
+    if int(num_points) < 3:
+        raise ValueError(f"parameters['num_points'] must be at least 3, got {num_points!r}")
+
+    num_output_points = parameters["num_output_points"]
+    if isinstance(num_output_points, bool) or not isinstance(num_output_points, Integral):
+        raise TypeError("parameters['num_output_points'] must be an integer")
+    if int(num_output_points) < 2:
+        raise ValueError(
+            f"parameters['num_output_points'] must be at least 2, got {num_output_points!r}"
+        )
+
+
+def _validate_heat_diffusion_solver_config(solver_config: Mapping[str, Scalar]) -> None:
+    allowed = frozenset(_HEAT_DIFFUSION_SOLVER_DEFAULTS)
+    unknown = set(solver_config) - allowed
+    if unknown:
+        names = ", ".join(sorted(unknown))
+        raise ValueError(f"unknown heat_diffusion solver_config key(s): {names}")
+    missing = allowed - set(solver_config)
+    if missing:
+        names = ", ".join(sorted(missing))
+        raise ValueError(f"heat_diffusion is missing solver_config key(s): {names}")
+
+    require_positive_finite(solver_config["rtol"], "solver_config['rtol']")
+    require_positive_finite(solver_config["atol"], "solver_config['atol']")
+
+
 def _validate_bell_parameters(parameters: Mapping[str, Scalar]) -> None:
     if parameters:
         names = ", ".join(sorted(parameters))
@@ -256,6 +323,9 @@ def _validate_model_fields(
     elif model_name == BELL_STATE:
         _validate_bell_parameters(parameters)
         _validate_bell_solver_config(solver_config)
+    elif model_name == HEAT_DIFFUSION:
+        _validate_heat_diffusion_parameters(parameters)
+        _validate_heat_diffusion_solver_config(solver_config)
     else:  # pragma: no cover - model names are validated before this call
         raise ValueError(f"unknown model_name {model_name!r}")
 
@@ -292,7 +362,7 @@ class ExperimentManifest:
     experiment_id:
         Lowercase SHA-256 hex digest of the canonical manifest content.
     model_name:
-        One of ``harmonic_oscillator`` or ``bell_state``.
+        One of ``harmonic_oscillator``, ``bell_state``, or ``heat_diffusion``.
     parameters:
         Flat, immutable mapping of model parameters with JSON scalar values.
     solver_config:
@@ -356,6 +426,13 @@ class ExperimentManifest:
             if parameters is not None:
                 merged_parameters.update(_require_mapping(parameters, "parameters"))
             merged_solver: dict[str, Scalar] = dict(_HARMONIC_SOLVER_DEFAULTS)
+            if solver_config is not None:
+                merged_solver.update(_require_mapping(solver_config, "solver_config"))
+        elif model == HEAT_DIFFUSION:
+            merged_parameters = dict(_HEAT_DIFFUSION_PARAMETER_DEFAULTS)
+            if parameters is not None:
+                merged_parameters.update(_require_mapping(parameters, "parameters"))
+            merged_solver = dict(_HEAT_DIFFUSION_SOLVER_DEFAULTS)
             if solver_config is not None:
                 merged_solver.update(_require_mapping(solver_config, "solver_config"))
         else:

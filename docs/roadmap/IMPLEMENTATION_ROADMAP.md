@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Phases 0–2 implemented; Phase 3 next; Phases 4–9 planned |
+| Status | Phases 0–3 implemented; Phases 4–9 planned |
 | Basis | Summary [ROADMAP.md](../../ROADMAP.md) |
 | Related | [Project brief](../requirements/PROJECT_BRIEF.md), [System architecture](../architecture/SYSTEM_ARCHITECTURE.md), [Scientific validation](../validation/SCIENTIFIC_VALIDATION.md), [Architectural decisions](../decisions/ARCHITECTURAL_DECISIONS.md) |
 
@@ -185,10 +185,11 @@ summaries under the reproducibility check.
 
 ## 6. Phase 3 — second classical domain
 
-**Status:** Next.
+**Status:** Implemented.
 
 **Goal.** Demonstrate that the foundation generalises beyond one equation,
-using real reference data and explicit uncertainty.
+using an independently constructed analytical reference and explicit
+parameter uncertainty.
 
 **Prerequisites.**
 
@@ -197,12 +198,17 @@ using real reference data and explicit uncertainty.
   reference, and a defensible validity range.
 - A written model specification with units and assumptions.
 
-**Scope (planned).**
+**Scope (delivered).**
 
-- Implement one additional classical domain.
-- Compare against real observations or an independently constructed reference.
-- Report uncertainty rather than a single point estimate.
-- Document calibration, validity limits, and failure modes.
+- Implemented the one-dimensional heat equation with homogeneous Dirichlet
+  boundaries as the second classical domain:
+  `src/qrs/classical/heat_diffusion.py`.
+- Compared against the exact Fourier sine-series solution as an
+  independently constructed reference.
+- Reported uncertainty propagated by Monte Carlo sampling of the diffusivity,
+  not asserted.
+- Documented calibration, validity limits, and failure modes in
+  `docs/domains/HEAT_DIFFUSION_SPEC.md`.
 
 **Out of scope.**
 
@@ -219,8 +225,26 @@ using real reference data and explicit uncertainty.
 - Invalid and out-of-range inputs are rejected.
 - Documentation states the domain of validity.
 
-**Open decision.** The second domain has not been selected. Selection is a
-Phase 3 prerequisite, not an assumption of this roadmap.
+**Delivered.** The heat-diffusion domain solves
+`u_t = alpha * u_xx` on `0 < x < L` with zero Dirichlet boundaries and initial
+profile `sin(pi x/L) + 0.5*sin(3*pi x/L)`, using SI units. The solver uses
+method of lines with second-order central differences, `solve_ivp` Radau with
+`rtol=1e-10`/`atol=1e-12`, and a constant sparse tridiagonal CSC Jacobian.
+Results are validated against the exact analytical solution, and uncertainty
+is propagated through the numerical solver via dense-output interpolation at
+`t_j = alpha_j * t_q / alpha0`. Tests cover analytic agreement, spatial
+convergence near order 2, first-mode decay, boundary conditions, invalid
+inputs, seed determinism, manifest round-trip, reproducibility, and UQ
+agreement with exact moments.
+
+**Evidence.**
+
+- Specification: `docs/domains/HEAT_DIFFUSION_SPEC.md`
+- Solver: `src/qrs/classical/heat_diffusion.py`
+- Tests: `tests/unit/test_heat_diffusion.py`,
+  `tests/scientific/test_heat_diffusion_scientific.py`
+- Runtime registration: `src/qrs/runtime/manifest.py`,
+  `src/qrs/runtime/runner.py` (additive; existing models unmodified)
 
 ## 7. Phase 4 — hybrid classical–quantum interface and noise-aware execution
 
@@ -461,7 +485,7 @@ assistance is only meaningful once there are validated results to explain.
 | 0 | FR-X1 (environment and pins) | Implemented |
 | 1 | FR-C1–C9, FR-Q1–Q9, FR-X2–X6 | Implemented |
 | 2 | Outcomes and gates in section 5; runtime contract in [MANIFEST_SPEC.md](../runtime/MANIFEST_SPEC.md) | Implemented |
-| 3 | Requirements to be written before work starts | Next |
+| 3 | Heat diffusion domain — `docs/domains/HEAT_DIFFUSION_SPEC.md` | Implemented |
 | 4–9 | Requirements to be written per phase | Planned |
 
 Phase 3 and later requirement identifiers do not exist yet. This roadmap
