@@ -12,10 +12,8 @@ import math
 from collections.abc import Mapping
 from typing import Final
 
-import numpy as np
-
 from qrs.classical import (
-    heat_diffusion_dense_solution,
+    propagate_uncertainty,
     simulate_harmonic_oscillator,
     simulate_heat_diffusion,
 )
@@ -41,23 +39,26 @@ QUANTUM_REFERENCE_TOLERANCE: Final[float] = 1e-12
 
 _CHSH_REFERENCE: Final[float] = 2.0 * math.sqrt(2.0)
 
-# Heat diffusion validation thresholds scale with dx^2 (safety factor 3) using
-# the error bound from docs/domains/HEAT_DIFFUSION_SPEC.md Section 4. The
-# constants are the measured error at N=401 (dx=2.5e-4) divided by dx^2, so
-# the threshold at N=401 equals 3 * measured_error and relaxes quadratically
-# for coarser grids.
-HEAT_ERROR_SAFETY_FACTOR: Final[float] = 3.0
-_HEAT_DX_401: Final[float] = 0.1 / 400.0
-_HEAT_C_BOUND: Final[float] = (
-    8.768433026773437e-06 / _HEAT_DX_401**2
-)  # max_abs_error / dx^2 at N=401
-_HEAT_C_BOUND_T_END: Final[float] = (
-    1.613655514765e-06 / _HEAT_DX_401**2
-)  # max_abs_error_t_end / dx^2 at N=401
+# Heat diffusion validation thresholds use the analytic error bound from
+# docs/domains/HEAT_DIFFUSION_SPEC.md Section 4. For initial sine modes n=1
+# (amplitude 1) and n=3 (amplitude 0.5), the relative rate error is
+# eps_n = (n*pi/(N-1))**2/12 and the peak error bound is
+# sum(a_n * eps_n) * exp(-1). Threshold = safety factor 1.5 * bound.
+HEAT_ERROR_SAFETY_FACTOR: Final[float] = 1.5
 
-# Fixed Monte Carlo sample count for heat-diffusion uncertainty propagation.
-HEAT_NUM_SAMPLES: Final[int] = 10000
-HEAT_RELATIVE_STD: Final[float] = 0.05
+
+def _heat_error_bound(num_points: int) -> float:
+    """Analytic peak error bound for the heat diffusion discretisation.
+
+    For initial modes n=1 (amplitude 1) and n=3 (amplitude 0.5):
+
+        eps_n = (n * pi / (N - 1))**2 / 12
+        bound = sum(a_n * eps_n) * exp(-1)
+    """
+
+    eps_1 = (math.pi / (num_points - 1)) ** 2 / 12.0
+    eps_3 = (3.0 * math.pi / (num_points - 1)) ** 2 / 12.0
+    return (1.0 * eps_1 + 0.5 * eps_3) * math.exp(-1.0)
 
 
 def _oscillator_summary(result: object, manifest: ExperimentManifest) -> dict[str, Scalar]:
@@ -131,13 +132,26 @@ def _bell_checks(result: object) -> dict[str, bool]:
 
 def _heat_summary(result: object, manifest: ExperimentManifest) -> dict[str, Scalar]:
     parameters = manifest.parameters
-    uq = _heat_uncertainty(manifest, result)
+    solver = manifest.solver_config
+    uq = propagate_uncertainty(
+        alpha=float(parameters["alpha"]),  # type: ignore[index]
+        length=float(parameters["length"]),  # type: ignore[index]
+        t_end=float(parameters["t_end"]),  # type: ignore[index]
+        num_points=int(parameters["num_points"]),  # type: ignore[index]
+        alpha_relative_std=float(parameters["alpha_relative_std"]),  # type: ignore[index]
+        num_samples=int(parameters["num_samples"]),  # type: ignore[index]
+        seed=int(manifest.seed),
+        rtol=float(solver["rtol"]),  # type: ignore[index]
+        atol=float(solver["atol"]),  # type: ignore[index]
+    )
     return {
         "alpha": float(parameters["alpha"]),  # type: ignore[index]
         "length": float(parameters["length"]),  # type: ignore[index]
         "t_end": float(parameters["t_end"]),  # type: ignore[index]
         "num_points": int(parameters["num_points"]),  # type: ignore[index]
         "num_output_points": int(parameters["num_output_points"]),  # type: ignore[index]
+        "alpha_relative_std": uq.alpha_relative_std,
+        "num_samples": uq.num_samples,
         "first_mode_decay_rate": result.first_mode_decay_rate,  # type: ignore[attr-defined]
         "max_abs_error": result.max_abs_error,  # type: ignore[attr-defined]
         "max_abs_error_t_end": result.max_abs_error_t_end,  # type: ignore[attr-defined]
@@ -148,89 +162,30 @@ def _heat_summary(result: object, manifest: ExperimentManifest) -> dict[str, Sca
         "min_u": result.min_u,  # type: ignore[attr-defined]
         "max_u": result.max_u,  # type: ignore[attr-defined]
         "method": result.method,  # type: ignore[attr-defined]
-        "uq_mean": uq["mean"],
-        "uq_std": uq["std"],
-        "uq_stderr": uq["stderr"],
-        "uq_interval_low": uq["interval_low"],
-        "uq_interval_high": uq["interval_high"],
-        "num_samples": uq["num_samples"],
+        "uq_mean": uq.mean,
+        "uq_std": uq.std,
+        "uq_stderr": uq.stderr,
+        "uq_interval_low": uq.interval_low,
+        "uq_interval_high": uq.interval_high,
         "seed": int(manifest.seed),
-    }
-
-
-def _heat_uncertainty(manifest: ExperimentManifest, result: object) -> dict[str, Scalar]:
-    """Propagate diffusivity uncertainty through the numerical solver.
-
-    Runs a single dense-output integration at ``alpha0`` over
-    ``[0, t_end * 1.25]`` and interpolates at ``t_j = alpha_j * t_end / alpha0``
-    for each sampled ``alpha_j``, exploiting that the PDE depends only on the
-    product ``alpha * t``. Sampled ``alpha <= 0`` is rejected.
-    """
-
-    alpha0 = float(manifest.parameters["alpha"])  # type: ignore[index]
-    length = float(manifest.parameters["length"])  # type: ignore[index]
-    t_end = float(manifest.parameters["t_end"])  # type: ignore[index]
-    num_points = int(manifest.parameters["num_points"])  # type: ignore[index]
-    seed = int(manifest.seed)
-
-    sigma = alpha0 * HEAT_RELATIVE_STD
-    rng = np.random.default_rng(seed)
-    alpha_samples = alpha0 + sigma * rng.standard_normal(HEAT_NUM_SAMPLES)
-    alpha_samples = alpha_samples[alpha_samples > 0.0]
-    if alpha_samples.size == 0:
-        raise ValueError("all sampled diffusivities were non-positive")
-
-    x_q = length / 2.0
-    t_q = t_end
-    t_max = t_end * 1.25
-
-    dx = length / (num_points - 1)
-    mid_index = round(x_q / dx)
-    interior_index = mid_index - 1  # dense output excludes boundary columns
-
-    sol = heat_diffusion_dense_solution(
-        alpha=alpha0,
-        length=length,
-        t_max=t_max,
-        num_points=num_points,
-    )
-
-    t_j = alpha_samples * t_q / alpha0
-    interior_all = sol.sol(t_j)  # shape (num_interior, num_samples)
-    interp_vals = interior_all[interior_index, :]
-
-    mean = float(np.mean(interp_vals))
-    std = float(np.std(interp_vals, ddof=1))
-    stderr = std / math.sqrt(interp_vals.size)
-    low, high = np.percentile(interp_vals, [2.5, 97.5])
-    return {
-        "mean": mean,
-        "std": std,
-        "stderr": stderr,
-        "interval_low": float(low),
-        "interval_high": float(high),
-        "num_samples": int(interp_vals.size),
     }
 
 
 def _heat_checks(result: object, manifest: ExperimentManifest) -> dict[str, bool]:
     parameters = manifest.parameters
     num_points = int(parameters["num_points"])  # type: ignore[index]
-    length = float(parameters["length"])  # type: ignore[index]
-    dx = length / (num_points - 1)
-    scale = dx * dx
 
-    max_abs_error_tolerance = HEAT_ERROR_SAFETY_FACTOR * scale * _HEAT_C_BOUND
-    max_abs_error_t_end_tolerance = HEAT_ERROR_SAFETY_FACTOR * scale * _HEAT_C_BOUND_T_END
+    bound = _heat_error_bound(num_points)
+    threshold = HEAT_ERROR_SAFETY_FACTOR * bound
 
     return {
         "max_abs_error": (
             result.max_abs_error  # type: ignore[attr-defined]
-            < max_abs_error_tolerance
+            < threshold
         ),
         "max_abs_error_t_end": (
             result.max_abs_error_t_end  # type: ignore[attr-defined]
-            < max_abs_error_t_end_tolerance
+            < threshold
         ),
         "boundary_max": (
             result.boundary_max  # type: ignore[attr-defined]
@@ -243,18 +198,19 @@ def _envelope(
     manifest: ExperimentManifest,
     summary: Mapping[str, Scalar],
     checks: Mapping[str, bool],
-    tolerance: float,
+    tolerance: float | None = None,
 ) -> ResultEnvelope:
     passed = tuple(name for name, ok in checks.items() if ok)
     failed = tuple(name for name, ok in checks.items() if not ok)
     details: dict[str, Scalar] = {
         "model_name": manifest.model_name,
-        "tolerance": tolerance,
         "checks": ",".join(checks),
         "checks_passed": len(passed),
         "checks_failed": len(failed),
         "failed_checks": ",".join(failed),
     }
+    if tolerance is not None:
+        details["tolerance"] = tolerance
     return ResultEnvelope(
         schema_version=ENVELOPE_SCHEMA_VERSION,
         manifest=manifest,
@@ -299,6 +255,7 @@ def run_manifest(manifest: ExperimentManifest) -> ResultEnvelope:
 
     parameters = manifest.parameters
     solver = manifest.solver_config
+    tolerance: float | None = None
 
     if manifest.model_name == HARMONIC_OSCILLATOR:
         result = simulate_harmonic_oscillator(
@@ -329,12 +286,13 @@ def run_manifest(manifest: ExperimentManifest) -> ResultEnvelope:
             t_end=float(parameters["t_end"]),  # type: ignore[index]
             num_points=int(parameters["num_points"]),  # type: ignore[index]
             num_output_points=int(parameters["num_output_points"]),  # type: ignore[index]
+            alpha_relative_std=float(parameters["alpha_relative_std"]),  # type: ignore[index]
+            num_samples=int(parameters["num_samples"]),  # type: ignore[index]
             rtol=float(solver["rtol"]),  # type: ignore[index]
             atol=float(solver["atol"]),  # type: ignore[index]
         )
         summary = _heat_summary(result, manifest)
         checks = _heat_checks(result, manifest)
-        tolerance = None  # heat diffusion uses dx-scaled per-check thresholds
     else:  # pragma: no cover - manifest validation rejects unknown model names
         raise ValueError(f"unsupported model_name {manifest.model_name!r}")
 

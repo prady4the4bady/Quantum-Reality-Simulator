@@ -164,6 +164,82 @@ def test_reproducibility_re_runs_within_tolerance() -> None:
     assert first.result_summary == second.result_summary
 
 
+@pytest.mark.parametrize("num_points", [4, 6, 10, 100])
+def test_even_num_points_is_rejected(num_points: int) -> None:
+    """num_points must be odd so that L/2 lies exactly on a grid point."""
+    with pytest.raises(ValueError, match="must be odd"):
+        _result(num_points=num_points)
+
+
+def test_t_end_zero_returns_initial_profile() -> None:
+    """t_end=0 is handled explicitly: solution is the initial profile."""
+    result = simulate_heat_diffusion(
+        alpha=1e-6, length=0.1, t_end=0.0, num_points=401, num_output_points=2
+    )
+
+    assert result.t_end == 0.0
+    assert result.t.shape == (2,)
+    assert result.t[0] == 0.0
+    assert result.t[-1] == 0.0
+    assert result.u.shape == (2, 401)
+    assert result.analytic_u.shape == (2, 401)
+    assert result.max_abs_error == 0.0
+    assert result.boundary_max == 0.0
+    assert result.initial_profile_error == 0.0
+    assert result.min_u >= -1e-12
+    assert np.all(np.isfinite(result.u))
+
+
+def test_result_summary_includes_uq_parameters() -> None:
+    """result_summary records alpha_relative_std and num_samples."""
+    envelope = run_manifest(
+        ExperimentManifest.create(
+            model_name=HEAT_DIFFUSION,
+            parameters={
+                "alpha": 1e-6,
+                "length": 0.1,
+                "t_end": 600.0,
+                "num_points": 401,
+                "num_output_points": 101,
+                "alpha_relative_std": 0.05,
+                "num_samples": 10000,
+            },
+            solver_config={"rtol": 1e-10, "atol": 1e-12},
+            seed=0,
+        )
+    )
+
+    summary = envelope.result_summary
+    assert summary["alpha_relative_std"] == 0.05
+    assert summary["num_samples"] == 10000
+    assert "uq_mean" in summary
+    assert "uq_std" in summary
+    assert "uq_stderr" in summary
+    assert "uq_interval_low" in summary
+    assert "uq_interval_high" in summary
+
+
+@pytest.mark.parametrize("length", [0.01, 1.0])
+def test_different_lengths_pass_validation(length: float) -> None:
+    """Correct runs pass validation for L=0.01 and L=1.0."""
+    envelope = run_manifest(
+        ExperimentManifest.create(
+            model_name=HEAT_DIFFUSION,
+            parameters={
+                "alpha": 1e-6,
+                "length": length,
+                "t_end": 600.0,
+                "num_points": 401,
+                "num_output_points": 101,
+            },
+            solver_config={"rtol": 1e-10, "atol": 1e-12},
+            seed=0,
+        )
+    )
+
+    assert envelope.validation_status == "passed", envelope.validation_details
+
+
 def test_seed_changes_uncertainty_summary() -> None:
     envelope_seed_0 = run_manifest(ExperimentManifest.create(model_name=HEAT_DIFFUSION, seed=0))
     envelope_seed_1 = run_manifest(ExperimentManifest.create(model_name=HEAT_DIFFUSION, seed=1))

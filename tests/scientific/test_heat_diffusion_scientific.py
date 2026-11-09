@@ -107,8 +107,34 @@ def test_boundary_conditions_exactly_zero() -> None:
     assert np.all(result.u[:, -1] == 0.0)
 
 
-def test_coarse_grid_passes_validation() -> None:
-    """A coarse grid (N=51) must not be wrongly marked failed by dx-scaled thresholds."""
+def test_analytic_bound_at_all_grid_sizes() -> None:
+    """Correct runs pass validation at N=51, 101, 401 using the analytic bound."""
+
+    from qrs.runtime import ExperimentManifest, run_manifest
+    from qrs.runtime.manifest import HEAT_DIFFUSION
+
+    for num_points in (51, 101, 401):
+        manifest = ExperimentManifest.create(
+            model_name=HEAT_DIFFUSION,
+            parameters={
+                "alpha": ALPHA,
+                "length": LENGTH,
+                "t_end": T_END,
+                "num_points": num_points,
+                "num_output_points": 101,
+            },
+            solver_config={"rtol": 1e-10, "atol": 1e-12},
+            seed=0,
+        )
+        envelope = run_manifest(manifest)
+        assert envelope.validation_status == "passed", (
+            f"N={num_points}: {envelope.validation_details}"
+        )
+
+
+@pytest.mark.parametrize("length", [0.01, 1.0])
+def test_different_lengths_pass_validation(length: float) -> None:
+    """Correct runs pass validation for L=0.01 and L=1.0."""
 
     from qrs.runtime import ExperimentManifest, run_manifest
     from qrs.runtime.manifest import HEAT_DIFFUSION
@@ -117,10 +143,10 @@ def test_coarse_grid_passes_validation() -> None:
         model_name=HEAT_DIFFUSION,
         parameters={
             "alpha": ALPHA,
-            "length": LENGTH,
+            "length": length,
             "t_end": T_END,
-            "num_points": 51,
-            "num_output_points": 2,
+            "num_points": 401,
+            "num_output_points": 101,
         },
         solver_config={"rtol": 1e-10, "atol": 1e-12},
         seed=0,
@@ -130,9 +156,9 @@ def test_coarse_grid_passes_validation() -> None:
 
 
 def test_sampled_alpha_below_zero_raises() -> None:
-    """HD-004: sampled alpha <= 0 is rejected before the solver is called."""
+    """HD-004: sampled alpha <= 0 raises ValueError (no filtering)."""
 
-    # Instead verify validation rejects alpha <= 0 at the entry point.
+    # Validation at the entry point rejects alpha <= 0.
     with pytest.raises((TypeError, ValueError), match="alpha"):
         simulate_heat_diffusion(alpha=0.0, length=LENGTH, t_end=T_END)
 
@@ -166,6 +192,9 @@ def test_uq_matches_exact_moments_within_standard_errors() -> None:
     assert envelope.validation_status == "passed", envelope.validation_details
 
     summary = envelope.result_summary
+    assert summary["alpha_relative_std"] == 0.05
+    assert summary["num_samples"] == 10000
+
     uq_mean = summary["uq_mean"]
     uq_std = summary["uq_std"]
     uq_stderr = summary["uq_stderr"]

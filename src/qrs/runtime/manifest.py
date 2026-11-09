@@ -90,6 +90,8 @@ _HEAT_DIFFUSION_PARAMETER_DEFAULTS: Final[Mapping[str, Scalar]] = MappingProxyTy
         "t_end": 600.0,
         "num_points": 401,
         "num_output_points": 101,
+        "alpha_relative_std": 0.05,
+        "num_samples": 10000,
     }
 )
 
@@ -283,6 +285,20 @@ def _validate_heat_diffusion_parameters(parameters: Mapping[str, Scalar]) -> Non
         raise ValueError(
             f"parameters['num_output_points'] must be at least 2, got {num_output_points!r}"
         )
+
+    alpha_relative_std = require_positive_finite(
+        parameters["alpha_relative_std"], "parameters['alpha_relative_std']"
+    )
+    if alpha_relative_std >= 1.0:
+        raise ValueError(
+            f"parameters['alpha_relative_std'] must be less than 1, got {alpha_relative_std!r}"
+        )
+
+    num_samples = parameters["num_samples"]
+    if isinstance(num_samples, bool) or not isinstance(num_samples, Integral):
+        raise TypeError("parameters['num_samples'] must be an integer")
+    if int(num_samples) < 2:
+        raise ValueError(f"parameters['num_samples'] must be at least 2, got {num_samples!r}")
 
 
 def _validate_heat_diffusion_solver_config(solver_config: Mapping[str, Scalar]) -> None:
