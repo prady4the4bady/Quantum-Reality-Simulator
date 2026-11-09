@@ -5,7 +5,12 @@ import math
 import numpy as np
 import pytest
 
-from qrs.classical import HeatDiffusionResult, simulate_heat_diffusion
+from qrs.classical import (
+    HeatDiffusionResult,
+    HeatDiffusionUncertainty,
+    propagate_uncertainty,
+    simulate_heat_diffusion,
+)
 from qrs.runtime import ExperimentManifest, check_reproducibility, run_manifest
 from qrs.runtime.manifest import HEAT_DIFFUSION
 
@@ -248,3 +253,137 @@ def test_seed_changes_uncertainty_summary() -> None:
     s1 = envelope_seed_1.result_summary
     assert s0["uq_mean"] != s1["uq_mean"]
     assert s0["uq_std"] != s1["uq_std"]
+
+
+def test_manifest_rejects_even_num_points() -> None:
+    """STEP 1: ExperimentManifest.create with num_points=400 raises ValueError."""
+    with pytest.raises(ValueError, match="must be odd so that L/2 lies"):
+        ExperimentManifest.create(
+            model_name=HEAT_DIFFUSION,
+            parameters={
+                "alpha": 1e-6,
+                "length": 0.1,
+                "t_end": 600.0,
+                "num_points": 400,
+                "num_output_points": 101,
+            },
+            solver_config={"rtol": 1e-10, "atol": 1e-12},
+            seed=0,
+        )
+
+    # num_points=401 still works
+    manifest = ExperimentManifest.create(
+        model_name=HEAT_DIFFUSION,
+        parameters={
+            "alpha": 1e-6,
+            "length": 0.1,
+            "t_end": 600.0,
+            "num_points": 401,
+            "num_output_points": 101,
+        },
+        solver_config={"rtol": 1e-10, "atol": 1e-12},
+        seed=0,
+    )
+    assert manifest.model_name == HEAT_DIFFUSION
+
+
+def test_dense_output_window_grows_with_samples() -> None:
+    """STEP 2: alpha_relative_std=0.12, 10000 samples, seed 0 runs without error."""
+    uq = propagate_uncertainty(
+        alpha=1e-6,
+        length=0.1,
+        t_end=600.0,
+        num_points=401,
+        alpha_relative_std=0.12,
+        num_samples=10000,
+        seed=0,
+    )
+    assert isinstance(uq, HeatDiffusionUncertainty)
+    assert uq.mean > 0.0
+    assert uq.std > 0.0
+    assert uq.stderr > 0.0
+    assert uq.interval_low < uq.interval_high
+
+
+def test_alpha_relative_std_0_15_accepted() -> None:
+    """STEP 3: alpha_relative_std=0.15 is accepted by manifest and solver."""
+    manifest = ExperimentManifest.create(
+        model_name=HEAT_DIFFUSION,
+        parameters={
+            "alpha": 1e-6,
+            "length": 0.1,
+            "t_end": 600.0,
+            "num_points": 401,
+            "num_output_points": 101,
+            "alpha_relative_std": 0.15,
+            "num_samples": 1000,
+        },
+        solver_config={"rtol": 1e-10, "atol": 1e-12},
+        seed=0,
+    )
+    assert manifest.parameters["alpha_relative_std"] == 0.15
+
+    result = simulate_heat_diffusion(
+        alpha=1e-6,
+        length=0.1,
+        t_end=600.0,
+        num_points=401,
+        num_output_points=101,
+        alpha_relative_std=0.15,
+        num_samples=1000,
+    )
+    assert result.alpha_relative_std == 0.15
+
+    uq = propagate_uncertainty(
+        alpha=1e-6,
+        length=0.1,
+        t_end=600.0,
+        num_points=401,
+        alpha_relative_std=0.15,
+        num_samples=1000,
+        seed=0,
+    )
+    assert isinstance(uq, HeatDiffusionUncertainty)
+    assert uq.alpha_relative_std == 0.15
+
+
+@pytest.mark.parametrize("value", [0.16, 0.2, 0.5])
+def test_alpha_relative_std_above_0_15_rejected(value: float) -> None:
+    """STEP 3: alpha_relative_std > 0.15 rejected by manifest, solver, and UQ."""
+    with pytest.raises(ValueError, match=r"at most 0\.15"):
+        ExperimentManifest.create(
+            model_name=HEAT_DIFFUSION,
+            parameters={
+                "alpha": 1e-6,
+                "length": 0.1,
+                "t_end": 600.0,
+                "num_points": 401,
+                "num_output_points": 101,
+                "alpha_relative_std": value,
+                "num_samples": 1000,
+            },
+            solver_config={"rtol": 1e-10, "atol": 1e-12},
+            seed=0,
+        )
+
+    with pytest.raises(ValueError, match=r"at most 0\.15"):
+        simulate_heat_diffusion(
+            alpha=1e-6,
+            length=0.1,
+            t_end=600.0,
+            num_points=401,
+            num_output_points=101,
+            alpha_relative_std=value,
+            num_samples=1000,
+        )
+
+    with pytest.raises(ValueError, match=r"at most 0\.15"):
+        propagate_uncertainty(
+            alpha=1e-6,
+            length=0.1,
+            t_end=600.0,
+            num_points=401,
+            alpha_relative_std=value,
+            num_samples=1000,
+            seed=0,
+        )

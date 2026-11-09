@@ -25,6 +25,7 @@ from numbers import Integral
 from types import MappingProxyType
 from typing import Any, Final
 
+from qrs.classical.heat_diffusion import HEAT_MAX_ALPHA_RELATIVE_STD
 from qrs.core.validation import require_finite_real, require_positive_finite
 from qrs.runtime.serialization import Scalar, canonical_json_dumps, freeze_scalar_mapping
 
@@ -277,6 +278,11 @@ def _validate_heat_diffusion_parameters(parameters: Mapping[str, Scalar]) -> Non
         raise TypeError("parameters['num_points'] must be an integer")
     if int(num_points) < 3:
         raise ValueError(f"parameters['num_points'] must be at least 3, got {num_points!r}")
+    if int(num_points) % 2 == 0:
+        raise ValueError(
+            "parameters['num_points'] must be odd so that L/2 lies "
+            f"on a grid point, got {num_points!r}"
+        )
 
     num_output_points = parameters["num_output_points"]
     if isinstance(num_output_points, bool) or not isinstance(num_output_points, Integral):
@@ -289,9 +295,11 @@ def _validate_heat_diffusion_parameters(parameters: Mapping[str, Scalar]) -> Non
     alpha_relative_std = require_positive_finite(
         parameters["alpha_relative_std"], "parameters['alpha_relative_std']"
     )
-    if alpha_relative_std >= 1.0:
+    if alpha_relative_std > HEAT_MAX_ALPHA_RELATIVE_STD:
         raise ValueError(
-            f"parameters['alpha_relative_std'] must be less than 1, got {alpha_relative_std!r}"
+            f"parameters['alpha_relative_std'] must be at most "
+            f"{HEAT_MAX_ALPHA_RELATIVE_STD} (larger values make a "
+            f"non-positive sampled alpha likely), got {alpha_relative_std!r}"
         )
 
     num_samples = parameters["num_samples"]

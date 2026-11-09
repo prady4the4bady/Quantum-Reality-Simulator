@@ -40,10 +40,15 @@ used anywhere in the numerical path.
 
 ### 1.3 Determinism
 
-Neither prototype uses random numbers, sampling, or wall-clock-dependent
-behaviour. Identical inputs, dependency versions, and platform floating-point
-semantics produce identical outputs. The Bell-state circuit is executed
-analytically, so there is no shot noise.
+### 1.3 Determinism
+
+The harmonic oscillator and Bell-state prototypes use no random numbers,
+sampling, or wall-clock-dependent behaviour; identical inputs, dependency
+versions, and platform floating-point semantics produce identical outputs. The
+Bell-state circuit is executed analytically, so there is no shot noise. The
+heat-diffusion domain uses `numpy.random.default_rng(seed)` for Monte Carlo
+diffusivity sampling, so its uncertainty summary is reproducible under a fixed
+seed but is not deterministic across different seeds.
 
 ## 2. Classical harmonic oscillator
 
@@ -453,7 +458,8 @@ $$
 
 All quantities use SI units: diffusivity `\alpha` in m²/s, length `L` in m,
 position `x` in m, and time `t` in s. The domain of validity is
-`\alpha > 0`, `L > 0`, `t >= 0`, and at least three grid points.
+`\alpha > 0`, `L > 0`, `t >= 0`, and `num_points` an odd integer `>= 3`
+(so that `L/2` lies exactly on a grid point).
 
 ### 4.2 Exact reference solution
 
@@ -522,6 +528,24 @@ times a documented safety factor.
 - Floating-point results may differ in the last few bits across platforms;
   tests use justified tolerances, not bitwise equality.
 
+### 4.7 Uncertainty propagation
+
+Diffusivity uncertainty is propagated through the numerical solver by Monte
+Carlo sampling:
+
+- Sample `alpha_j ~ Normal(alpha0, (alpha0 * s)^2)` where `s` is
+  `alpha_relative_std`, using `numpy.random.default_rng(seed)`.
+- Any sampled `alpha_j <= 0` raises `ValueError` (no filtering).
+- Since the PDE depends only on the product `alpha * t`, a single
+  dense-output Radau integration at `alpha0` over `[0, t_max]` with
+  `t_max = max(1.25 * t_end, max(t_j))` is interpolated at
+  `t_j = alpha_j * t_end / alpha0` for each sample.
+- The quantity of interest is `u(x_q, t_q)` at `x_q = L/2` and `t_q = t_end`.
+- Report the sample mean, sample standard deviation (`ddof=1`), the standard
+  error of the mean, and the central 95% interval (2.5th and 97.5th percentiles).
+- The seed fixes the random draws, so the uncertainty summary is reproducible
+  under a fixed seed.
+
 ## 5. Cross-cutting numerical practices
 
 ### 5.1 Validation before computation
@@ -544,7 +568,9 @@ different method.
 - Python 3.12.x, validated with 3.12.10.
 - CPU only.
 - No network access in the numerical path.
-- No random seeds are needed.
+- No random seeds are needed for the deterministic solves; heat-diffusion
+  uncertainty propagation uses `numpy.random.default_rng(seed)` and is
+  reproducible under a fixed seed.
 
 Floating-point results in the last few bits may differ across operating
 systems, CPUs, and linear-algebra libraries. Tests therefore use justified
