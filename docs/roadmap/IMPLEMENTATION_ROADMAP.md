@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Phases 0–1 implemented; Phase 2 next; Phases 3–9 planned |
+| Status | Phases 0–2 implemented; Phase 3 next; Phases 4–9 planned |
 | Basis | Summary [ROADMAP.md](../../ROADMAP.md) |
 | Related | [Project brief](../requirements/PROJECT_BRIEF.md), [System architecture](../architecture/SYSTEM_ARCHITECTURE.md), [Scientific validation](../validation/SCIENTIFIC_VALIDATION.md), [Architectural decisions](../decisions/ARCHITECTURAL_DECISIONS.md) |
 
@@ -102,7 +102,7 @@ Bell fidelity `0.9999999999999996`; CHSH `2.828427124746189`; purity
 
 ## 5. Phase 2 — experiment runtime
 
-**Status:** Next.
+**Status:** Implemented.
 
 **Goal.** Make experiments reproducible and comparable before adding scientific
 domains. Phase 2 is infrastructure for trustworthy results, not new physics.
@@ -113,53 +113,79 @@ domains. Phase 2 is infrastructure for trustworthy results, not new physics.
 - Agreement on a minimal manifest and result-envelope schema.
 - A decision on serialisation format and schema versioning.
 
-**Scope (planned).**
+**Delivered.**
 
-1. Define a versioned experiment manifest containing:
-   - model identifier and version;
-   - validated parameters;
-   - environment (Python, package versions, platform);
-   - random seed or an explicit statement that the model is deterministic;
-   - creation timestamp in a documented format.
-2. Define a result envelope that references the manifest, the model result
-   object, validation status, and any artefact references.
-3. Implement parameter sweeps over the two existing models.
-4. Implement deterministic serialisation and deserialisation with round-trip
-   tests.
-5. Record a reproducibility check: the same manifest and environment produce
-   the same result within documented floating-point tolerance.
-6. Reject malformed, incomplete, or version-incompatible manifests with
+| Area | Deliverable | Evidence |
+| --- | --- | --- |
+| Manifest | Frozen slotted `ExperimentManifest`, `schema_version=1`, deterministic SHA-256 `experiment_id` | `src/qrs/runtime/manifest.py` |
+| Canonical JSON | Sorted keys, fixed separators, UTF-8, NaN and infinity rejected | `src/qrs/runtime/serialization.py` |
+| Envelope | Frozen `ResultEnvelope` with manifest, scalar summary, validation status and details, artefact references | `src/qrs/runtime/envelope.py` |
+| Runner | `run_manifest` dispatches `harmonic_oscillator` and `bell_state` to existing Phase 1 physics and records measured metrics | `src/qrs/runtime/runner.py` |
+| Reproducibility | `check_reproducibility` re-runs a manifest, compares summaries, and rejects seed or environment drift unless allowed | `src/qrs/runtime/runner.py` |
+| Validation | Rejects unknown models, unknown or missing fields, wrong types, non-finite numbers, and unsupported schema versions | `src/qrs/runtime/manifest.py` |
+| Tests | 249 Phase 2 cases covering serialisation, manifests, envelopes, and integration | `tests/unit/`, `tests/integration/test_runtime.py` |
+| Documentation | Implemented runtime contract | `docs/runtime/MANIFEST_SPEC.md` |
+| Lint | Ruff lint and format checks | Clean for the repository |
+
+**Scope delivered.**
+
+1. Versioned experiment manifests containing the model identifier, validated
+   parameters, solver configuration, environment, seed, and UTC creation
+   timestamp.
+2. Result envelopes containing the manifest, a flat scalar result summary,
+   validation status, validation details, and artefact references.
+3. Deterministic canonical serialisation and round-trip tests.
+4. Manifest execution for both existing models without modifying physics code.
+5. A reproducibility check that re-runs the same manifest and compares result
+   summaries within a documented tolerance.
+6. Rejection of malformed, incomplete, or version-incompatible manifests with
    descriptive errors.
 
-**Out of scope.**
+**Explicitly deferred.**
 
+- Parameter sweeps and batch experiment orchestration. The original Phase 2
+  sketch included sweeps; they are not implemented and are not part of the
+  accepted runtime contract.
+- Persistence, databases, storage backends, and result-file writing.
+- Schema migration beyond rejecting unsupported versions.
 - New physical or quantum domains.
-- Databases, servers, or multi-user access.
 - Dashboards, plotting, or user interfaces.
-- AI-assisted experiment design.
+- AI-assisted experiment design or explanation.
 - Bitwise portability claims across platforms.
 
-**Acceptance gates.**
+**Key measured results.** Both models run through `run_manifest` with validation
+passing under their documented tolerances. The full suite reports `342 passed`
+(93 Phase 1 cases plus 249 Phase 2 cases). Repeated manifests produce identical
+summaries under the reproducibility check.
+
+**Exit criteria (met).**
 
 - A manifest round-trips without loss of validated parameters.
+- Identifiers are deterministic and change when validated content changes.
 - A result envelope round-trips and rejects incompatible schema versions.
 - Re-running a manifest reproduces the recorded result within a documented
   tolerance.
 - Invalid manifests fail with `TypeError` or `ValueError`, not silent fallback.
-- Tests cover round-trip, versioning, invalid input, and determinism.
-- Full pytest, Ruff, and package build pass.
-- Documentation states that serialisation and sweeps are implemented only when
-  they actually are.
+- Tests cover round-trip, deterministic identifiers, every rejection case,
+  successful reproduction, tampered seed or environment failure, and
+  integration.
+- Full pytest and Ruff checks pass.
+- Documentation states that manifests, envelopes, and reproducibility checks are
+  implemented, while sweeps and persistence are not.
+- A local commit records the runtime; nothing is pushed.
 
-**Risks.**
+**Risks and limitations.**
 
-- Over-designing storage before the schema is stable.
-- Treating a manifest as a security boundary; it is not.
-- Introducing optional dependencies that become mandatory for core use.
+- Over-designing storage before the schema is stable; no storage was added.
+- Treating a manifest as a security boundary; it is an integrity record, not an
+  authentication mechanism.
+- Environment drift is rejected by default rather than silently tolerated.
+- Only two deterministic models are supported; the seed does not change their
+  numerical results.
 
 ## 6. Phase 3 — second classical domain
 
-**Status:** Planned.
+**Status:** Next.
 
 **Goal.** Demonstrate that the foundation generalises beyond one equation,
 using real reference data and explicit uncertainty.
@@ -434,10 +460,11 @@ assistance is only meaningful once there are validated results to explain.
 | --- | --- | --- |
 | 0 | FR-X1 (environment and pins) | Implemented |
 | 1 | FR-C1–C9, FR-Q1–Q9, FR-X2–X6 | Implemented |
-| 2 | Requirements to be written before work starts | Next |
-| 3–9 | Requirements to be written per phase | Planned |
+| 2 | Outcomes and gates in section 5; runtime contract in [MANIFEST_SPEC.md](../runtime/MANIFEST_SPEC.md) | Implemented |
+| 3 | Requirements to be written before work starts | Next |
+| 4–9 | Requirements to be written per phase | Planned |
 
-Phase 2 and later requirement identifiers do not exist yet. This roadmap
+Phase 3 and later requirement identifiers do not exist yet. This roadmap
 defines outcomes and gates; it does not invent requirement numbers.
 
 ## 16. Change control
