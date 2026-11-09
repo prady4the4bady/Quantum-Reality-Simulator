@@ -160,6 +160,20 @@ def test_seed_determinism_reproduces_identical_summary() -> None:
     assert envelope_a.validation_status == envelope_b.validation_status
 
 
+def test_default_uq_values_regression_seed_0() -> None:
+    """Regression check against previously reviewed output, not a scientific validation.
+
+    The default heat-diffusion manifest with seed 0 must reproduce the
+    previously recorded uq_mean and uq_std exactly.
+    """
+    manifest = ExperimentManifest.create(model_name=HEAT_DIFFUSION, seed=0)
+    envelope = run_manifest(manifest)
+    summary = envelope.result_summary
+
+    assert summary["uq_mean"] == pytest.approx(0.550755250912931, abs=1e-9)
+    assert summary["uq_std"] == pytest.approx(0.01569055194620832, abs=1e-9)
+
+
 def test_reproducibility_re_runs_within_tolerance() -> None:
     manifest = ExperimentManifest.create(model_name=HEAT_DIFFUSION, seed=0)
     first, second = check_reproducibility(manifest, tolerance=1e-12)
@@ -193,6 +207,23 @@ def test_t_end_zero_returns_initial_profile() -> None:
     assert result.initial_profile_error == 0.0
     assert result.min_u >= -1e-12
     assert np.all(np.isfinite(result.u))
+
+
+def test_run_manifest_t_end_zero() -> None:
+    """t_end=0 through the runtime: u(L/2, 0) = 0.5 and all errors are zero."""
+    manifest = ExperimentManifest.create(
+        model_name=HEAT_DIFFUSION,
+        parameters={"t_end": 0.0},
+        solver_config={"rtol": 1e-10, "atol": 1e-12},
+        seed=0,
+    )
+    envelope = run_manifest(manifest)
+
+    assert envelope.validation_status == "passed", envelope.validation_details
+    summary = envelope.result_summary
+    assert summary["uq_std"] == 0.0
+    assert summary["uq_mean"] == pytest.approx(0.5, abs=1e-12)
+    assert summary["max_abs_error"] == 0.0
 
 
 def test_result_summary_includes_uq_parameters() -> None:
