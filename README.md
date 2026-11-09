@@ -85,6 +85,16 @@ Latest verified results are recorded in
 and the runtime contract in
 [docs/runtime/MANIFEST_SPEC.md](docs/runtime/MANIFEST_SPEC.md).
 
+## Continuous integration
+
+The GitHub Actions workflow at `.github/workflows/ci.yml` runs on pull requests
+and on pushes to `main` for both `windows-latest` and `ubuntu-latest` with Python
+3.12. It installs the project with the `dev` extra and runs `ruff check .`,
+`ruff format --check .`, and `pytest tests -q`. The workflow has read-only
+`contents` permission and uses no secrets. The workflow itself has not yet been
+executed by GitHub; the equivalent local commands and their results are listed
+under Verification.
+
 ## Headline validated results
 
 | Quantity | Measured value |
