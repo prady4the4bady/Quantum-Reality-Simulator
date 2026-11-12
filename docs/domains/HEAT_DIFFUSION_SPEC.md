@@ -474,4 +474,4 @@ Implementation summary:
    implemented.
 6. `.venv\Scripts\python.exe -m ruff check .`, `ruff format --check .`,
    `pytest tests -q` all pass.
-7. Committed and merged via PR #2 at commit bcbb04541eb20a259b36537353325c273fb3d28b; follow-up fixes were merged via PR #3 at commit dd4aa2f370caf6e1834896fc038e0d629f09c207. No push, merge, PR, or history rewrite beyond those reviewed and merged pull requests.
+7. The domain was merged via PR #2 (merge commit bcbb04541eb20a259b36537353325c273fb3d28b) and follow-up fixes via PR #3 (merge commit dd4aa2f370caf6e1834896fc038e0d629f09c207).

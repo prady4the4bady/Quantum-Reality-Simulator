@@ -88,7 +88,7 @@ and the runtime contract in
 
 The GitHub Actions workflow at `.github/workflows/ci.yml` runs on pull requests
 and on pushes to `main` for both `windows-latest` and `ubuntu-latest` with Python
-3.12, and has run on merged pull requests (owner-confirmed for PR #4). It
+3.12 and has run on pull requests, for example PR #4. It
 installs the project with the `dev` extra and runs `ruff check .`,
 `ruff format --check .`, and `pytest tests -q`. The workflow has read-only
 `contents` permission and uses no secrets.

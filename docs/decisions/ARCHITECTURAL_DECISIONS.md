@@ -339,8 +339,7 @@ explicitly in the README.
 **Status update.** A `LICENSE` file now exists in the repository root.
 Copyright (c) 2026 Pradyun Kumar Sinha; all rights reserved; no licence or
 permission of any kind is granted. The file is proprietary and confidential.
-The repository is public; whether this changes any access assumptions could
-not be verified from local data alone.
+The repository is public.
 
 ## ADR-016 — Measured, justified tolerances; never weakened
 

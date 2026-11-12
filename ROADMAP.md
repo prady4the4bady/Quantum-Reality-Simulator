@@ -97,6 +97,8 @@ round-trip, reproducibility, and UQ agreement with exact moments.
   `src/qrs/runtime/runner.py` (additive; existing models unmodified)
 
 
+## Explicit non-goals for implemented phases
+
 - Simulating all eleven domains.
 - Claiming real-world predictive accuracy.
 - Parameter sweeps and batch experiment orchestration.
