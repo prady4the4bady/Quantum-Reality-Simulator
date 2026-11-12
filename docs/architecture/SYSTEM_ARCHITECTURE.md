@@ -1,8 +1,8 @@
-# System Architecture — QRS Phase 2
+# System Architecture — QRS Phases 1–3
 
 | Field | Value |
 | --- | --- |
-| Status | Phase 2 runtime implemented |
+| Status | Phases 1–3 implemented |
 | Scope | Implemented foundation and experiment runtime plus planned layers |
 | Related | [Project brief](../requirements/PROJECT_BRIEF.md), [Numerical methods](../scientific-methods/NUMERICAL_METHODS.md), [Runtime specification](../runtime/MANIFEST_SPEC.md), [Decisions](../decisions/ARCHITECTURAL_DECISIONS.md) |
 
@@ -69,10 +69,11 @@
 +-------------------+                              +-------------------+
 ```
 
-Phase 1 implements the two engines, the shared validation module, the result
-objects, the examples, and the test suite. Phase 2 adds the experiment runtime:
-canonical manifests, result envelopes, manifest execution, and reproducibility
-checks. Everything downstream of the runtime — persistence, storage,
+Phase 1 implemented the oscillator and Bell-state engines, the shared
+validation module, the result objects, the examples, and the test suite.
+Phase 2 adds the experiment runtime: canonical manifests, result envelopes,
+manifest execution, and reproducibility checks. Phase 3 adds the heat-diffusion
+engine. Everything downstream of the runtime — persistence, storage,
 visualisation, and external data — is planned.
 
 ## 3. Layered architecture
@@ -98,6 +99,7 @@ visualisation, and external data — is planned.
 +-------------------------------v-------------------------------+
 | Domain modules                                                |
 | qrs.classical.harmonic_oscillator                             |
+| qrs.classical.heat_diffusion                                  |
 | qrs.quantum.bell_state                                        |
 +-------------------------------+-------------------------------+
                                 |
@@ -132,6 +134,7 @@ visualisation, and external data — is planned.
 | `src/qrs/__init__.py` | Package identity and scope statement | `__version__` |
 | `src/qrs/core/validation.py` | Strict scalar validation | `require_finite_real`, `require_positive_finite` |
 | `src/qrs/classical/harmonic_oscillator.py` | Classical model, integration, analytical reference, metrics | `simulate_harmonic_oscillator`, `HarmonicOscillatorResult` |
+| `src/qrs/classical/heat_diffusion.py` | Classical heat diffusion, integration, analytical reference, metrics, Monte Carlo uncertainty | `simulate_heat_diffusion`, `propagate_uncertainty`, `heat_diffusion_dense_solution`, `HeatDiffusionResult`, `HeatDiffusionUncertainty` |
 | `src/qrs/quantum/bell_state.py` | Bell-state circuit, device execution, correlations, CHSH, purity, fidelity | `simulate_bell_state`, `BellStateResult` |
 | `src/qrs/runtime/serialization.py` | Canonical JSON and immutable scalar mappings | `canonical_json_dumps`, `freeze_scalar_mapping` |
 | `src/qrs/runtime/manifest.py` | Manifest schema, environment capture, deterministic identifier | `ExperimentManifest`, `capture_environment` |
@@ -142,7 +145,7 @@ visualisation, and external data — is planned.
 | `examples/verify_foundation.py` | End-to-end smoke check with non-zero exit on failure | `main()` |
 | `tests/unit/` | Interface, validation, runtime contract, and serialisation tests | Pytest |
 | `tests/scientific/` | Agreement with analytical or independent references | Pytest |
-| `tests/integration/` | Both prototypes and the runtime exercised together | Pytest |
+| `tests/integration/` | All three domains and the runtime exercised together | Pytest |
 
 ### 4.2 Absent by design
 
@@ -319,8 +322,11 @@ offending parameter name so callers can act without inspecting a traceback.
   platform floating-point behaviour.
 - The Bell-state circuit is analytic and deterministic. The integration test
   asserts that repeated runs return identical statevectors and CHSH values.
-- Both implemented models are deterministic, so `seed` is non-negative metadata
-  and does not affect numerical results.
+- Both the harmonic oscillator and the Bell-state models are deterministic, so
+  `seed` is non-negative metadata and does not affect their numerical results.
+  For `heat_diffusion`, `seed` seeds `numpy.random.default_rng(seed)` for the
+  Monte Carlo diffusivity sampling, so changing it changes the `uq_*` summary
+  values.
 - `ExperimentManifest` records the model, validated parameters, solver
   configuration, seed, creation timestamp, and exact environment versions for
   Python, NumPy, SciPy, PennyLane, QRS, and the platform.
@@ -388,7 +394,7 @@ domain count.
 ExperimentManifest
   experiment_id   deterministic SHA-256 identifier
   schema_version  1
-  model_name      harmonic_oscillator | bell_state
+  model_name      harmonic_oscillator | bell_state | heat_diffusion
   parameters      immutable scalar mapping
   solver_config   immutable scalar mapping
   seed            non-negative integer metadata
@@ -404,7 +410,7 @@ ResultEnvelope
   artefacts       tuple of relative POSIX paths; currently empty
 ```
 
-`run_manifest` dispatches the two supported model names to the existing Phase 1
+`run_manifest` dispatches the supported model names to the existing Phase 1
 physics functions and records measured metrics. No physics code is modified or
 reimplemented. `check_reproducibility` re-runs the manifest and compares result
 summaries under a documented tolerance.

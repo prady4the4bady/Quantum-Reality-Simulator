@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | **Implemented** (merged in commit bcbb045; follow-up work on branch phase3-followups) |
+| Status | **Implemented** (merged via PR #2 at commit bcbb04541eb20a259b36537353325c273fb3d28b; follow-up fixes merged via PR #3 at commit dd4aa2f370caf6e1834896fc038e0d629f09c207) |
 | Scope | Solver, tests, runtime registration, and documentation |
 | Related | [System architecture](../architecture/SYSTEM_ARCHITECTURE.md), [Numerical methods](../scientific-methods/NUMERICAL_METHODS.md), [Scientific validation](../validation/SCIENTIFIC_VALIDATION.md), [Implementation roadmap](../roadmap/IMPLEMENTATION_ROADMAP.md), [Experiment runtime](../runtime/MANIFEST_SPEC.md) |
 
@@ -128,7 +128,7 @@ u_n^{\text{num}}(t) \approx u_n^{\text{exact}}(t)\,
 \approx u_n^{\text{exact}}(t)\left(1 + \alpha k^2 t\,\varepsilon_k\right).
 $$
 
-For the candidate default case (`\alpha = 1e-6`, `L = 0.1`, `t_end = 600`,
+For the default case (`\alpha = 1e-6`, `L = 0.1`, `t_end = 600`,
 `N = 401`, `dx = 2.5e-4`), the dominant mode is `n = 1`:
 
 - `k = \pi/L = 31.4159 m^{-1}`, `k dx = 0.007854`
@@ -140,9 +140,10 @@ For the candidate default case (`\alpha = 1e-6`, `L = 0.1`, `t_end = 600`,
   (matches the measured `1.683722e-06`)
 
 Because `\varepsilon_k \propto dx^2`, the peak error scales as `dx^2`, which
-is why acceptance thresholds HD-G1–HD-G3 are expressed as absolute bounds and
-why the runner's validation thresholds in Section 8 scale with `dx^2` times a
-safety factor.
+is why the runner's validation thresholds in Section 9 scale with `dx^2` times a
+safety factor. The value `1.68e-6` is the first-mode error at `x = L/2` and
+`t = t_end`; it does not bound the full-solution error over time (measured
+`8.768433e-06` at `t = 114.0`), which is what HD-G1 measures.
 
 ## 5. Requirement identifiers
 
@@ -164,7 +165,7 @@ safety factor.
 | HD-014 | Uncertainty contract: `alpha ~ Normal`, relative standard deviation, `N` Monte Carlo samples from `numpy.random.default_rng(seed)`, report mean, standard deviation, and 95% interval at a chosen point and time. |
 | HD-015 | Determinism: identical manifest and seed reproduce identical summaries. |
 
-## 6. Proposed numerical method
+## 6. Numerical method
 
 - Spatial discretisation: second-order central differences on a uniform grid
   `x_i = i*dx`, `dx = L / (num_points - 1)`, `i = 0 .. num_points-1`.
@@ -182,7 +183,7 @@ safety factor.
 
 ## 7. Default case and measured acceptance gates
 
-The candidate default case (unapproved, unwritten) is:
+The default case is:
 
 | Parameter | Value |
 | --- | --- |
@@ -202,8 +203,7 @@ stiff.
 
 ### 7.1 Deterministic acceptance gates
 
-These gates are based on measured scratch runs, not guesses. They are
-candidates pending approval and implementation.
+These gates are based on measured scratch runs, not guesses.
 
 | Gate | Condition | Measured reference |
 | --- | --- | --- |
@@ -276,7 +276,7 @@ $$
 \alpha \sim \mathrm{Normal}(\alpha_0,\;(\alpha_0 \cdot \alpha\_relative\_std)^2).
 $$
 
-Candidate default: `\alpha_0 = 1e-6`, `\alpha_relative_std = 0.05`, so
+Default: `\alpha_0 = 1e-6`, `\alpha_relative_std = 0.05`, so
 `\sigma_\alpha = 5e-8`. The allowed range is `0 < alpha_relative_std <= 0.15`;
 larger values make a non-positive sampled alpha likely with 10000 samples, so
 the run raises at runtime (HD-004). Any sampled `\alpha <= 0` is rejected
@@ -415,7 +415,7 @@ Integration is strictly additive; no existing model is modified.
   tolerance; changing `seed` changes the Monte Carlo summary and therefore the
   reproducibility comparison (unlike existing models where `seed` is metadata).
 
-## 10. Proposed tests
+## 10. Tests
 
 Tests must cover (mapped to requirement IDs):
 
@@ -456,8 +456,7 @@ Tests must cover (mapped to requirement IDs):
 
 ## 12. Implementation status
 
-The domain is implemented (merged in commit bcbb045). Follow-up fixes are on
-branch `phase3-followups`.
+The domain is implemented (merged via PR #2 at commit bcbb04541eb20a259b36537353325c273fb3d28b; follow-up fixes merged via PR #3 at commit dd4aa2f370caf6e1834896fc038e0d629f09c207).
 
 Implementation summary:
 
@@ -476,5 +475,4 @@ Implementation summary:
    implemented.
 6. `.venv\Scripts\python.exe -m ruff check .`, `ruff format --check .`,
    `pytest tests -q` all pass.
-7. Committed locally on `phase3-heat-diffusion`; no push, merge, PR, or
-   history rewrite.
+7. The domain was merged via PR #2 (merge commit bcbb04541eb20a259b36537353325c273fb3d28b) and follow-up fixes via PR #3 (merge commit dd4aa2f370caf6e1834896fc038e0d629f09c207).

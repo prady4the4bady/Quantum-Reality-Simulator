@@ -28,13 +28,13 @@ storage, comparison, visualisation
 optional AI explanation (never the source of numerical outcomes)
 ```
 
-## Implemented layers (Phase 1)
+## Implemented layers (Phases 1-3)
 
 ```text
 src/qrs/
 ├── __init__.py          package version and scope statement
 ├── core/                domain-independent input validation
-├── classical/           SciPy harmonic oscillator
+├── classical/           SciPy harmonic oscillator and heat diffusion
 └── quantum/             PennyLane Bell-state circuit
 ```
 
@@ -42,6 +42,9 @@ src/qrs/
   non-real types, NaN, infinity, and non-positive physical parameters.
 - `qrs.classical.harmonic_oscillator` owns the classical model, solver call,
   analytical reference solution, energy accounting, and error metrics.
+- `qrs.classical.heat_diffusion` owns the classical heat-diffusion model,
+  solver call, analytical reference solution, error metrics, and Monte Carlo
+  uncertainty propagation.
 - `qrs.quantum.bell_state` owns the circuit definition, device execution,
   statevector-derived probabilities, Pauli correlations, CHSH terms, reduced
   state, purity, and independent-reference fidelity.
@@ -85,4 +88,5 @@ A new domain module is accepted only when it provides:
 
 Phase 1 deliberately implements two prototypes rather than a multi-domain
 skeleton, so that the scientific quality bar is demonstrated before it is
-scaled.
+scaled. Phase 3 later added the heat-diffusion domain as the second classical
+domain, with its own exact reference and uncertainty propagation.

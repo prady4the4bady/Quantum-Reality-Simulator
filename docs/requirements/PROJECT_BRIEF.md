@@ -4,7 +4,7 @@
 | --- | --- |
 | Document status | Provisional; Phase 1 baseline |
 | Source | Derived from the user-provided project specification |
-| Repository | `prady4the4bady/Quantum-Reality-Simulator` (private) |
+| Repository | `prady4the4bady/Quantum-Reality-Simulator` (public; all-rights-reserved `LICENSE` file) |
 | Phase | 1 — scientific foundation |
 | Date | 2026-11-08 |
 

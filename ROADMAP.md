@@ -18,7 +18,7 @@ criteria are in
 | 0 | Repository, branch, Python 3.12 environment, dependency pinning | Implemented |
 | 1 | Classical harmonic oscillator and PennyLane Bell state, docs, tests, lint | Implemented |
 | 2 | Experiment runtime: manifests, result envelopes, runner, reproducibility check | Implemented |
-| 3 | Second classical domain with real reference data and uncertainty reporting | Next |
+| 3 | Second classical domain with real reference data and uncertainty reporting | Implemented |
 | 4 | Hybrid classical–quantum interface and noise-aware execution | Planned |
 | 5 | Storage, provenance, and reproducibility layer | Planned |
 | 6 | Visualisation and scenario comparison | Planned |
@@ -56,20 +56,47 @@ criteria are in
   seed or environment drift unless explicitly allowed.
 - Runtime contract documented in
   [docs/runtime/MANIFEST_SPEC.md](docs/runtime/MANIFEST_SPEC.md).
-- 249 Phase 2 tests passing; full suite 342 passing; Ruff lint and format
+- 249 Phase 2 tests passing; full suite 407 passing; Ruff lint and format
   checks clean.
 - Local commit only; no push, merge, or pull request.
 
 ## Near-term priorities
 
-1. Select the Phase 3 classical domain based on reference-data availability and
-   the ability to validate against an independent source.
-2. Define the uncertainty-reporting contract for Phase 3 before adding any
-   domain module.
-3. Treat parameter sweeps and result persistence as explicit future runtime
+1. Treat parameter sweeps and result persistence as explicit future runtime
    extensions; neither is implemented in Phase 2.
-4. Keep the AI layer optional, local-first, and unable to alter numerical
+2. Keep the AI layer optional, local-first, and unable to alter numerical
    results.
+
+## Phase 3 acceptance criteria (met)
+
+- The domain passes the extension blueprint in
+  [docs/architecture/SYSTEM_ARCHITECTURE.md](docs/architecture/SYSTEM_ARCHITECTURE.md).
+- Uncertainty is quantified and propagated, not asserted.
+- Results are compared with real or independently derived reference values.
+- Invalid and out-of-range inputs are rejected.
+- Documentation states the domain of validity.
+
+**Delivered.** The heat-diffusion domain solves `u_t = alpha * u_xx` on
+`0 < x < L` with zero Dirichlet boundaries and initial profile `sin(pi x/L) +
+0.5*sin(3*pi x/L)`, using SI units. The solver uses method of lines with
+second-order central differences, `solve_ivp` Radau with `rtol=1e-10`/`atol=1e-12`
+(defaults; callers may override via the manifest), and a constant sparse
+tridiagonal CSC Jacobian. Results are validated against
+the exact analytical solution, and uncertainty is propagated through the
+numerical solver via dense-output interpolation at `t_j = alpha_j * t_q / alpha0`.
+Tests cover analytic agreement, spatial convergence near order 2, first-mode
+decay, boundary conditions, invalid inputs, seed determinism, manifest
+round-trip, reproducibility, and UQ agreement with exact moments.
+
+**Evidence.**
+
+- Specification: `docs/domains/HEAT_DIFFUSION_SPEC.md`
+- Solver: `src/qrs/classical/heat_diffusion.py`
+- Tests: `tests/unit/test_heat_diffusion.py`,
+  `tests/scientific/test_heat_diffusion_scientific.py`
+- Runtime registration: `src/qrs/runtime/manifest.py`,
+  `src/qrs/runtime/runner.py` (additive; existing models unmodified)
+
 
 ## Explicit non-goals for implemented phases
 

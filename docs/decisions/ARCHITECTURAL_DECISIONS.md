@@ -58,6 +58,10 @@ overwrite pre-existing content — none existed at clone time.
 - If the remote is later found to contain unrelated work, this decision must be
   revisited before any push.
 
+**Status update.** Local history shows four pull requests (#1–#4) merged as
+merge commits into `main` (most recent: `494263a`, PR #4). The repository
+`prady4the4bady/Quantum-Reality-Simulator` is public.
+
 ## ADR-002 — Commit locally on `phase1-foundation`; no push
 
 **Context.** Phase 1 is a foundation milestone. Publishing it is a separate
@@ -75,6 +79,10 @@ approval.
 - The commit is reviewable locally with `git show` before any publication.
 - The first push is a deliberate, separately approved action.
 - History is linear because no merge is performed in this phase.
+
+**Status update.** Local history shows four pull requests (#1–#4) merged as
+merge commits into `main` (most recent: `494263a`, PR #4). Work is pushed and
+merged via PRs rather than remaining local-only.
 
 ## ADR-003 — Python 3.12.10 in a repo-local `.venv`
 
@@ -315,7 +323,7 @@ entry points that link to the detailed documents.
 ## ADR-015 — No licence selected in Phase 1
 
 **Context.** Choosing a licence is an owner decision with legal consequences.
-The repository is private and has no external contributors.
+The repository is public and has no external contributors.
 
 **Decision.** Do not add a licence file in Phase 1. State the absence
 explicitly in the README.
@@ -327,6 +335,11 @@ explicitly in the README.
 - Redistribution or external use should wait until a licence is chosen.
 - A future licence decision must be recorded in this document and in the
   README.
+
+**Status update.** A `LICENSE` file now exists in the repository root.
+Copyright (c) 2026 Pradyun Kumar Sinha; all rights reserved; no licence or
+permission of any kind is granted. The file is proprietary and confidential.
+The repository is public.
 
 ## ADR-016 — Measured, justified tolerances; never weakened
 
@@ -372,10 +385,10 @@ phase that depends on them:
 
 | Topic | Needed by | Current state |
 | --- | --- | --- |
-| Result serialisation format | Phase 2 | Not selected |
-| Experiment manifest schema and versioning | Phase 2 | Illustrative names only |
+| Result serialisation format | Phase 2 | Resolved (implemented; canonical JSON, `schema_version=1`) |
+| Experiment manifest schema and versioning | Phase 2 | Resolved (implemented; `ExperimentManifest`, deterministic SHA-256 `experiment_id`) |
 | Lockfile for transitive dependencies | Phase 2 or earlier | Not present |
-| Choice of second classical domain | Phase 3 | Not selected |
+| Choice of second classical domain | Phase 3 | Resolved (heat diffusion implemented; see `docs/domains/HEAT_DIFFUSION_SPEC.md`) |
 | Noise model and shot policy | Phase 4 | Not designed |
 | Storage technology and artefact layout | Phase 5 | Not selected |
 | Visualisation stack | Phase 6 | Not selected |
