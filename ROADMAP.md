@@ -79,8 +79,9 @@ criteria are in
 **Delivered.** The heat-diffusion domain solves `u_t = alpha * u_xx` on
 `0 < x < L` with zero Dirichlet boundaries and initial profile `sin(pi x/L) +
 0.5*sin(3*pi x/L)`, using SI units. The solver uses method of lines with
-second-order central differences, `solve_ivp` Radau with `rtol=1e-10`/`atol=1e-12`,
-and a constant sparse tridiagonal CSC Jacobian. Results are validated against
+second-order central differences, `solve_ivp` Radau with `rtol=1e-10`/`atol=1e-12`
+(defaults; callers may override via the manifest), and a constant sparse
+tridiagonal CSC Jacobian. Results are validated against
 the exact analytical solution, and uncertainty is propagated through the
 numerical solver via dense-output interpolation at `t_j = alpha_j * t_q / alpha0`.
 Tests cover analytic agreement, spatial convergence near order 2, first-mode

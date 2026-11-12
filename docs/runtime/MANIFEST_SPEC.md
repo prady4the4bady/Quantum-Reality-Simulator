@@ -338,14 +338,36 @@ absolute tolerance `1e-12`:
 | `zx_correlation` | `|zx_correlation| <= 1e-12` |
 | `xz_correlation` | `|xz_correlation| <= 1e-12` |
 
-### 6.3 Validation details
+### 6.2a Heat-diffusion summary
 
-Every envelope records:
+`result_summary` contains:
+
+`alpha`, `length`, `t_end`, `num_points`, `num_output_points`,
+`alpha_relative_std`, `num_samples`, `first_mode_decay_rate`,
+`max_abs_error`, `max_abs_error_t_end`, `u_mid_t_end`,
+`analytic_u_mid_t_end`, `boundary_max`, `initial_profile_error`,
+`min_u`, `max_u`, `method`, `uq_mean`, `uq_std`, `uq_stderr`,
+`uq_interval_low`, `uq_interval_high`, `seed`.
+
+Validation checks:
+
+| Check | Pass condition |
+| --- | --- |
+| `max_abs_error` | `< 1.5 * bound` where `bound = sum(a_n * eps_n) * exp(-1)`, `eps_n = (n*pi/(N-1))**2/12`, `a_1 = 1`, `a_3 = 0.5` |
+| `max_abs_error_t_end` | `< 1.5 * bound` (same bound as above) |
+| `boundary_max` | `== 0.0` |
+
+`tolerance` is absent from `validation_details` for `heat_diffusion`; the
+checks above use dx-scaled per-check thresholds instead.
+
+### 6.3 Validation details:
+
+Envelopes record these keys:
 
 | Key | Meaning |
 | --- | --- |
 | `model_name` | Executed model. |
-| `tolerance` | `1e-8` for the oscillator, `1e-12` for Bell. |
+| `tolerance` | `1e-8` for the oscillator, `1e-12` for Bell. Absent for `heat_diffusion` (that model uses dx-scaled per-check thresholds; see below). |
 | `checks` | Comma-joined check names in execution order. |
 | `checks_passed` | Count of passing checks. |
 | `checks_failed` | Count of failing checks. |
