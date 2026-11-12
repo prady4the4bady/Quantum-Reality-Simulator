@@ -128,7 +128,7 @@ u_n^{\text{num}}(t) \approx u_n^{\text{exact}}(t)\,
 \approx u_n^{\text{exact}}(t)\left(1 + \alpha k^2 t\,\varepsilon_k\right).
 $$
 
-For the candidate default case (`\alpha = 1e-6`, `L = 0.1`, `t_end = 600`,
+For the default case (`\alpha = 1e-6`, `L = 0.1`, `t_end = 600`,
 `N = 401`, `dx = 2.5e-4`), the dominant mode is `n = 1`:
 
 - `k = \pi/L = 31.4159 m^{-1}`, `k dx = 0.007854`
@@ -140,9 +140,10 @@ For the candidate default case (`\alpha = 1e-6`, `L = 0.1`, `t_end = 600`,
   (matches the measured `1.683722e-06`)
 
 Because `\varepsilon_k \propto dx^2`, the peak error scales as `dx^2`, which
-is why acceptance thresholds HD-G1–HD-G3 are expressed as absolute bounds and
-why the runner's validation thresholds in Section 8 scale with `dx^2` times a
-safety factor.
+is why the runner's validation thresholds in Section 9 scale with `dx^2` times a
+safety factor. The value `1.68e-6` is the first-mode error at `x = L/2` and
+`t = t_end`; it does not bound the full-solution error over time (measured
+`8.768433e-06` at `t = 114.0`), which is what HD-G1 measures.
 
 ## 5. Requirement identifiers
 
@@ -275,7 +276,7 @@ $$
 \alpha \sim \mathrm{Normal}(\alpha_0,\;(\alpha_0 \cdot \alpha\_relative\_std)^2).
 $$
 
-Candidate default: `\alpha_0 = 1e-6`, `\alpha_relative_std = 0.05`, so
+Default: `\alpha_0 = 1e-6`, `\alpha_relative_std = 0.05`, so
 `\sigma_\alpha = 5e-8`. The allowed range is `0 < alpha_relative_std <= 0.15`;
 larger values make a non-positive sampled alpha likely with 10000 samples, so
 the run raises at runtime (HD-004). Any sampled `\alpha <= 0` is rejected
@@ -414,7 +415,7 @@ Integration is strictly additive; no existing model is modified.
   tolerance; changing `seed` changes the Monte Carlo summary and therefore the
   reproducibility comparison (unlike existing models where `seed` is metadata).
 
-## 10. Proposed tests
+## 10. Tests
 
 Tests must cover (mapped to requirement IDs):
 
