@@ -1,4 +1,4 @@
-# System Architecture — QRS Phase 2
+# System Architecture — QRS Phases 1–3
 
 | Field | Value |
 | --- | --- |

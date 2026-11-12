@@ -28,7 +28,7 @@ storage, comparison, visualisation
 optional AI explanation (never the source of numerical outcomes)
 ```
 
-## Implemented layers (Phase 1)
+## Implemented layers (Phases 1-3)
 
 ```text
 src/qrs/
@@ -86,6 +86,7 @@ A new domain module is accepted only when it provides:
 - tests covering valid, invalid, boundary, and convergence behaviour;
 - a statement of assumptions and domain of validity.
 
-Phase 1 deliberately implements three prototypes rather than a multi-domain
+Phase 1 deliberately implements two prototypes rather than a multi-domain
 skeleton, so that the scientific quality bar is demonstrated before it is
-scaled.
+scaled. Phase 3 later added the heat-diffusion domain as the second classical
+domain, with its own exact reference and uncertainty propagation.

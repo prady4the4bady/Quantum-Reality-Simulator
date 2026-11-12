@@ -4,7 +4,15 @@ QRS is a local-first, modular simulation platform intended to combine classical
 numerical computing, genuine quantum-circuit simulation, domain-specific
 scientific models, data management, experiment storage, and visualisation.
 
-**Current status: Phases 1–3 implemented.** Three validated numerical domains are implemented and wrapped in reproducible manifest and result-envelope records: the classical harmonic oscillator, the Bell-state quantum circuit, and the one-dimensional heat-diffusion domain. The wider multi-domain platform is planned, not implemented. Parameter sweeps, experiment persistence, storage, visualisation, and all remaining domain simulators remain unimplemented. Nothing in this repository should be interpreted as a working geopolitical, economic, climate, or other domain simulator yet.
+**Current status: Phases 1–3 implemented.** Three validated numerical
+domains are implemented and wrapped in reproducible manifest and
+result-envelope records: the classical harmonic oscillator, the Bell-state
+quantum circuit, and the one-dimensional heat-diffusion domain. The wider
+multi-domain platform is planned, not implemented. Parameter sweeps,
+experiment persistence, storage, visualisation, and all remaining domain
+simulators remain unimplemented. Nothing in this repository should be
+interpreted as a working geopolitical, economic, climate, or other domain
+simulator yet.
 
 ## Implemented
 
@@ -80,11 +88,10 @@ and the runtime contract in
 
 The GitHub Actions workflow at `.github/workflows/ci.yml` runs on pull requests
 and on pushes to `main` for both `windows-latest` and `ubuntu-latest` with Python
-3.12. It installs the project with the `dev` extra and runs `ruff check .`,
+3.12, and has run on merged pull requests (owner-confirmed for PR #4). It
+installs the project with the `dev` extra and runs `ruff check .`,
 `ruff format --check .`, and `pytest tests -q`. The workflow has read-only
-`contents` permission and uses no secrets. The workflow is configured to run on
-pull requests and pushes to `main`; equivalent local commands and their results
-are listed under Verification.
+`contents` permission and uses no secrets.
 
 ## Headline validated results
 

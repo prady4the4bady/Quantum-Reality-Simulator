@@ -59,9 +59,8 @@ overwrite pre-existing content — none existed at clone time.
   revisited before any push.
 
 **Status update.** Local history shows four pull requests (#1–#4) merged as
-merge commits into `main` (most recent: `494263a`, PR #4). A GitHub remote
-`origin` exists at `prady4the4bady/Quantum-Reality-Simulator`. Whether the
-repository is public or private could not be verified from local data alone.
+merge commits into `main` (most recent: `494263a`, PR #4). The repository
+`prady4the4bady/Quantum-Reality-Simulator` is public.
 
 ## ADR-002 — Commit locally on `phase1-foundation`; no push
 
@@ -324,7 +323,7 @@ entry points that link to the detailed documents.
 ## ADR-015 — No licence selected in Phase 1
 
 **Context.** Choosing a licence is an owner decision with legal consequences.
-The repository is private and has no external contributors.
+The repository is public and has no external contributors.
 
 **Decision.** Do not add a licence file in Phase 1. State the absence
 explicitly in the README.
@@ -340,8 +339,8 @@ explicitly in the README.
 **Status update.** A `LICENSE` file now exists in the repository root.
 Copyright (c) 2026 Pradyun Kumar Sinha; all rights reserved; no licence or
 permission of any kind is granted. The file is proprietary and confidential.
-Whether this changes the "private" status of the repository could not be
-verified from local data alone.
+The repository is public; whether this changes any access assumptions could
+not be verified from local data alone.
 
 ## ADR-016 — Measured, justified tolerances; never weakened
 

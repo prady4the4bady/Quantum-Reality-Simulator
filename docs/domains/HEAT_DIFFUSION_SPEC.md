@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | **Implemented** (merged in commit bcbb045; follow-up work on branch phase3-followups) |
+| Status | **Implemented** (merged via PR #2 at commit bcbb04541eb20a259b36537353325c273fb3d28b; follow-up fixes merged via PR #3 at commit dd4aa2f370caf6e1834896fc038e0d629f09c207) |
 | Scope | Solver, tests, runtime registration, and documentation |
 | Related | [System architecture](../architecture/SYSTEM_ARCHITECTURE.md), [Numerical methods](../scientific-methods/NUMERICAL_METHODS.md), [Scientific validation](../validation/SCIENTIFIC_VALIDATION.md), [Implementation roadmap](../roadmap/IMPLEMENTATION_ROADMAP.md), [Experiment runtime](../runtime/MANIFEST_SPEC.md) |
 
@@ -455,8 +455,7 @@ Tests must cover (mapped to requirement IDs):
 
 ## 12. Implementation status
 
-The domain is implemented (merged in commit bcbb045). Follow-up fixes are on
-branch `phase3-followups`.
+The domain is implemented (merged via PR #2 at commit bcbb04541eb20a259b36537353325c273fb3d28b; follow-up fixes merged via PR #3 at commit dd4aa2f370caf6e1834896fc038e0d629f09c207).
 
 Implementation summary:
 
@@ -475,4 +474,4 @@ Implementation summary:
    implemented.
 6. `.venv\Scripts\python.exe -m ruff check .`, `ruff format --check .`,
    `pytest tests -q` all pass.
-7. Committed and merged via PR #2 at commit bcbb045; follow-up fixes are on branch phase3-followups (merged at dd4aa2f). No push, merge, PR, or history rewrite beyond those reviewed and merged pull requests.
+7. Committed and merged via PR #2 at commit bcbb04541eb20a259b36537353325c273fb3d28b; follow-up fixes were merged via PR #3 at commit dd4aa2f370caf6e1834896fc038e0d629f09c207. No push, merge, PR, or history rewrite beyond those reviewed and merged pull requests.
