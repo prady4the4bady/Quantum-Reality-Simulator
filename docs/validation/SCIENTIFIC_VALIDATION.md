@@ -1,8 +1,8 @@
-# Scientific Validation — QRS Phase 1
+# Scientific Validation — QRS Phases 1–3
 
 | Field | Value |
 | --- | --- |
-| Status | Phase 1 validation record; Phase 3 heat diffusion added |
+| Status | Phases 1–3 validation record; Phase 3 heat diffusion added |
 | Scope | Classical harmonic oscillator; PennyLane Bell state; heat diffusion |
 | Environment | Windows, CPU only, Python 3.12.10, repo-local `.venv` |
 | Related | [Project brief](../requirements/PROJECT_BRIEF.md), [System architecture](../architecture/SYSTEM_ARCHITECTURE.md), [Numerical methods](../scientific-methods/NUMERICAL_METHODS.md), [Decisions](../decisions/ARCHITECTURAL_DECISIONS.md) |

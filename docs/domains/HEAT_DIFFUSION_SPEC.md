@@ -164,7 +164,7 @@ safety factor.
 | HD-014 | Uncertainty contract: `alpha ~ Normal`, relative standard deviation, `N` Monte Carlo samples from `numpy.random.default_rng(seed)`, report mean, standard deviation, and 95% interval at a chosen point and time. |
 | HD-015 | Determinism: identical manifest and seed reproduce identical summaries. |
 
-## 6. Proposed numerical method
+## 6. Numerical method
 
 - Spatial discretisation: second-order central differences on a uniform grid
   `x_i = i*dx`, `dx = L / (num_points - 1)`, `i = 0 .. num_points-1`.
@@ -182,7 +182,7 @@ safety factor.
 
 ## 7. Default case and measured acceptance gates
 
-The candidate default case (unapproved, unwritten) is:
+The default case is:
 
 | Parameter | Value |
 | --- | --- |
@@ -202,8 +202,7 @@ stiff.
 
 ### 7.1 Deterministic acceptance gates
 
-These gates are based on measured scratch runs, not guesses. They are
-candidates pending approval and implementation.
+These gates are based on measured scratch runs, not guesses.
 
 | Gate | Condition | Measured reference |
 | --- | --- | --- |
@@ -476,5 +475,4 @@ Implementation summary:
    implemented.
 6. `.venv\Scripts\python.exe -m ruff check .`, `ruff format --check .`,
    `pytest tests -q` all pass.
-7. Committed locally on `phase3-heat-diffusion`; no push, merge, PR, or
-   history rewrite.
+7. Committed and merged via PR #2 at commit bcbb045; follow-up fixes are on branch phase3-followups (merged at dd4aa2f). No push, merge, PR, or history rewrite beyond those reviewed and merged pull requests.

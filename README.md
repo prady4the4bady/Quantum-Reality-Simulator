@@ -4,13 +4,7 @@ QRS is a local-first, modular simulation platform intended to combine classical
 numerical computing, genuine quantum-circuit simulation, domain-specific
 scientific models, data management, experiment storage, and visualisation.
 
-**Current status: Phase 1 scientific foundation plus the Phase 2 experiment
-runtime.** Two small, independently tested prototypes are implemented and
-wrapped in reproducible manifest and result-envelope records. The wider
-multi-domain platform is planned, not implemented. Parameter sweeps, experiment
-persistence, storage, visualisation, and all domain simulators remain
-unimplemented. Nothing in this repository should be interpreted as a working
-geopolitical, economic, climate, or other domain simulator yet.
+**Current status: Phases 1–3 implemented.** Three validated numerical domains are implemented and wrapped in reproducible manifest and result-envelope records: the classical harmonic oscillator, the Bell-state quantum circuit, and the one-dimensional heat-diffusion domain. The wider multi-domain platform is planned, not implemented. Parameter sweeps, experiment persistence, storage, visualisation, and all remaining domain simulators remain unimplemented. Nothing in this repository should be interpreted as a working geopolitical, economic, climate, or other domain simulator yet.
 
 ## Implemented
 
@@ -18,18 +12,15 @@ geopolitical, economic, climate, or other domain simulator yet.
 | --- | --- | --- |
 | Classical harmonic oscillator `m*x'' + k*x = 0` | SciPy `solve_ivp`, analytical comparison, energy tracking | Implemented and validated |
 | Quantum Bell state `|Phi+> = (|00> + |11>)/sqrt(2)` | PennyLane `default.qubit`, H + CNOT, statevector and correlations | Implemented and validated |
+| Heat diffusion `u_t = alpha * u_xx` | Method of lines, Radau, sparse Jacobian, exact Fourier reference, Monte Carlo uncertainty | Implemented and validated |
 | Shared scalar validation | `qrs.core.validation` | Implemented |
 | Experiment runtime | `qrs.runtime`: canonical manifests, result envelopes, manifest runner, reproducibility check | Implemented and tested |
-| Automated tests | Pytest unit, scientific, and integration suites | Implemented, 342 tests passing |
+| Automated tests | Pytest unit, scientific, and integration suites | Implemented, 407 tests passing |
 | Lint and formatting | Ruff | Implemented, clean |
 
 ## Not implemented yet
 
-The following are planned only: the eleven simulation domains, real-world data
-ingestion, digital-twin state management, scenario and optimisation workflows,
-parameter sweeps, experiment persistence, storage, visualisation, AI-assisted
-orchestration, and any web or desktop interface. See [ROADMAP.md](ROADMAP.md)
-and [docs/runtime/MANIFEST_SPEC.md](docs/runtime/MANIFEST_SPEC.md).
+The following are planned only: the remaining simulation domains beyond the three implemented, real-world data ingestion, digital-twin state management, scenario and optimisation workflows, parameter sweeps, experiment persistence, storage, visualisation, AI-assisted orchestration, and any web or desktop interface. See [ROADMAP.md](ROADMAP.md) and [docs/runtime/MANIFEST_SPEC.md](docs/runtime/MANIFEST_SPEC.md).
 
 The language model is never part of the numerical path. All reported scientific
 results come from locally executed NumPy, SciPy, and PennyLane computation.
@@ -91,9 +82,9 @@ The GitHub Actions workflow at `.github/workflows/ci.yml` runs on pull requests
 and on pushes to `main` for both `windows-latest` and `ubuntu-latest` with Python
 3.12. It installs the project with the `dev` extra and runs `ruff check .`,
 `ruff format --check .`, and `pytest tests -q`. The workflow has read-only
-`contents` permission and uses no secrets. The workflow itself has not yet been
-executed by GitHub; the equivalent local commands and their results are listed
-under Verification.
+`contents` permission and uses no secrets. The workflow is configured to run on
+pull requests and pushes to `main`; equivalent local commands and their results
+are listed under Verification.
 
 ## Headline validated results
 
@@ -123,6 +114,8 @@ Quantum-Reality-Simulator/
 ├── pyproject.toml
 ├── .gitignore
 ├── docs/
+│   ├── domains/
+│   │   └── HEAT_DIFFUSION_SPEC.md
 │   ├── requirements/PROJECT_BRIEF.md
 │   ├── architecture/SYSTEM_ARCHITECTURE.md
 │   ├── scientific-methods/NUMERICAL_METHODS.md
@@ -132,7 +125,7 @@ Quantum-Reality-Simulator/
 │   └── roadmap/IMPLEMENTATION_ROADMAP.md
 ├── src/qrs/
 │   ├── core/          # shared validation helpers
-│   ├── classical/     # SciPy harmonic oscillator
+│   ├── classical/     # SciPy harmonic oscillator and heat diffusion
 │   ├── quantum/       # PennyLane Bell state
 │   └── runtime/       # manifests, envelopes, runner, reproducibility
 ├── tests/
@@ -151,6 +144,7 @@ placeholders.
 | Document | Purpose |
 | --- | --- |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Short architectural entry point |
+| [docs/domains/HEAT_DIFFUSION_SPEC.md](docs/domains/HEAT_DIFFUSION_SPEC.md) | Heat-diffusion domain specification |
 | [docs/requirements/PROJECT_BRIEF.md](docs/requirements/PROJECT_BRIEF.md) | Provisional brief derived from the user-supplied specification |
 | [docs/architecture/SYSTEM_ARCHITECTURE.md](docs/architecture/SYSTEM_ARCHITECTURE.md) | Layers, module boundaries, dependency rules |
 | [docs/scientific-methods/NUMERICAL_METHODS.md](docs/scientific-methods/NUMERICAL_METHODS.md) | Equations, numerical methods, conventions, assumptions |
@@ -174,8 +168,9 @@ placeholders.
 
 ## License
 
-No license has been selected yet. Do not redistribute this repository until a
-license is added.
+The repository contains a `LICENSE` file. It is proprietary: copyright (c)
+2026 Pradyun Kumar Sinha, all rights reserved, and no licence or permission of
+any kind is granted. See `LICENSE` for the full text.
 
 ## Security
 

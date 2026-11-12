@@ -69,7 +69,7 @@
 +-------------------+                              +-------------------+
 ```
 
-Phase 1 implements the two engines, the shared validation module, the result
+Phase 1 implements the three engines, the shared validation module, the result
 objects, the examples, and the test suite. Phase 2 adds the experiment runtime:
 canonical manifests, result envelopes, manifest execution, and reproducibility
 checks. Everything downstream of the runtime — persistence, storage,
@@ -98,6 +98,7 @@ visualisation, and external data — is planned.
 +-------------------------------v-------------------------------+
 | Domain modules                                                |
 | qrs.classical.harmonic_oscillator                             |
+| qrs.classical.heat_diffusion                                  |
 | qrs.quantum.bell_state                                        |
 +-------------------------------+-------------------------------+
                                 |
@@ -388,7 +389,7 @@ domain count.
 ExperimentManifest
   experiment_id   deterministic SHA-256 identifier
   schema_version  1
-  model_name      harmonic_oscillator | bell_state
+  model_name      harmonic_oscillator | bell_state | heat_diffusion
   parameters      immutable scalar mapping
   solver_config   immutable scalar mapping
   seed            non-negative integer metadata
@@ -404,7 +405,7 @@ ResultEnvelope
   artefacts       tuple of relative POSIX paths; currently empty
 ```
 
-`run_manifest` dispatches the two supported model names to the existing Phase 1
+`run_manifest` dispatches the supported model names to the existing Phase 1
 physics functions and records measured metrics. No physics code is modified or
 reimplemented. `check_reproducibility` re-runs the manifest and compares result
 summaries under a documented tolerance.

@@ -12,11 +12,12 @@
 
 ## 1. Scope
 
-Phase 2 wraps the two existing Phase 1 physics functions in reproducible
+Phase 2 wraps the three supported physics functions in reproducible
 experiment records:
 
 - `harmonic_oscillator` dispatches to `simulate_harmonic_oscillator`.
 - `bell_state` dispatches to `simulate_bell_state`.
+- `heat_diffusion` dispatches to `simulate_heat_diffusion`.
 
 The runtime adds no physics, changes no physics module, and writes no files.
 Full arrays remain in the in-memory result objects returned by the physics
@@ -65,7 +66,7 @@ Booleans are preserved as booleans and are not reinterpreted as integers.
 | --- | --- | --- |
 | `schema_version` | integer | Exactly `1`. Booleans are rejected. |
 | `experiment_id` | string | 64-character lowercase SHA-256 hex digest. |
-| `model_name` | string | `harmonic_oscillator` or `bell_state`. |
+| `model_name` | string | `harmonic_oscillator`, `bell_state`, or `heat_diffusion`. |
 | `parameters` | mapping | Flat scalar mapping validated per model. |
 | `solver_config` | mapping | Flat scalar mapping validated per model. |
 | `seed` | integer | Non-negative. Booleans are rejected. |
@@ -123,6 +124,24 @@ over these defaults, so serialised manifests are self-contained:
 | `rtol` | `1e-10` |
 | `atol` | `1e-12` |
 
+For `heat_diffusion`, every optional parameter and solver key is merged over
+these defaults, so serialised manifests are self-contained:
+
+| Parameters | Default |
+| --- | --- |
+| `alpha` | `1e-6` |
+| `length` | `0.1` |
+| `t_end` | `600.0` |
+| `num_points` | `401` |
+| `num_output_points` | `101` |
+| `alpha_relative_std` | `0.05` |
+| `num_samples` | `10000` |
+
+| Solver configuration | Default |
+| --- | --- |
+| `rtol` | `1e-10` |
+| `atol` | `1e-12` |
+
 For `bell_state`, `parameters` and `solver_config` must be absent, `None`, or
 empty mappings. Any key is rejected.
 
@@ -145,6 +164,17 @@ empty mappings. Any key is rejected.
 
 - `parameters` must be empty;
 - `solver_config` must be empty.
+
+`heat_diffusion`:
+
+- `alpha` and `length` must be positive and finite;
+- `t_end` must be finite and non-negative;
+- `num_points` must be an odd integer of at least `3` (booleans rejected);
+- `num_output_points` must be an integer of at least `2` (booleans rejected);
+- `alpha_relative_std` must be positive, finite, and at most `0.15`;
+- `num_samples` must be an integer of at least `2` (booleans rejected);
+- `rtol` and `atol` must be positive and finite;
+- unknown or missing parameter or solver keys are rejected.
 
 ### 3.4 Loading and integrity checks
 
@@ -328,10 +358,13 @@ reproducibility check's job.
 
 ### 6.4 Seeds
 
-Neither implemented model uses randomness or sampling. `seed` is non-negative
-metadata and does not change numerical output. It is included in the
-`experiment_id` hash, so changing it produces a different manifest identity and
-is detectable.
+Neither the harmonic oscillator nor the Bell-state model uses randomness or
+sampling; for those models `seed` is non-negative metadata and does not change
+numerical output. For `heat_diffusion`, `seed` seeds
+`numpy.random.default_rng(seed)` for the Monte Carlo diffusivity sampling, so
+changing it changes the `uq_*` summary values. For all models, `seed` is
+included in the `experiment_id` hash, so changing it produces a different
+manifest identity and is detectable.
 
 ## 7. Reproducibility check
 
